@@ -1,0 +1,7 @@
+seed: 7
+episodes: 8000
+fields: 1000
+n_estimators: 256
+replay_steps: 8
+benchmark_fields: 64
+replay_terrain_seed: 140042

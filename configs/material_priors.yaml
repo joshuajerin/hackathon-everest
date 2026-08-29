@@ -1,0 +1,24 @@
+schema_version: 0.1.0
+status: synthetic_unvalidated
+units:
+  support_layer_depth: m
+  vertical_stiffness: N/m
+  damping: N*s/m
+  bearing_capacity: N
+  shear_capacity: N
+ranges:
+  support_layer_depth_m: [0.003, 0.18]
+  vertical_stiffness_n_per_m: [2500, 45000]
+  damping_ns_per_m: [20, 140]
+  bearing_capacity_n: [60, 900]
+  shear_capacity_n: [20, 600]
+  friction: [0.08, 0.75]
+  crust_thickness_m: [0.002, 0.03]
+  temperature_c: [-32, -2]
+correlation_lengths_m:
+  density: [0.2, 0.8]
+  stiffness: [0.2, 0.8]
+  snow_depth: [0.3, 1.5]
+notes:
+  - These ranges drive the current synthetic model conceptually but are not field calibrated.
+  - Replace with versioned fitted priors after SnowMicroPen and radar calibration.
