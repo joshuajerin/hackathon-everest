@@ -101,8 +101,13 @@ def main() -> int:
                     raise ValueError("non-finite locomotion metric")
                 if progress_m <= 0.20:
                     raise ValueError(f"insufficient uphill progress: {progress_m:.6f} m")
-                if climb_m <= 0.03:
-                    raise ValueError(f"insufficient vertical climb: {climb_m:.6f} m")
+                expected_climb_m = float(locomotion["expected_climb_from_progress_m"])
+                minimum_climb_m = max(0.01, 0.50 * expected_climb_m)
+                if climb_m <= minimum_climb_m:
+                    raise ValueError(
+                        f"insufficient vertical climb: {climb_m:.6f} m; "
+                        f"required {minimum_climb_m:.6f} m"
+                    )
                 if abs(tracking_error_m) > 0.20:
                     raise ValueError(
                         f"climb tracking error {tracking_error_m:.6f} m exceeds 0.20 m"
