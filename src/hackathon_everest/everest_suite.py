@@ -66,7 +66,11 @@ def _validate_suite(config: dict[str, Any]) -> None:
     if len(inclines) != len(set(inclines)) or any(not 0.0 <= value <= 60.0 for value in inclines):
         raise ValueError("Inclines must be unique and between 0 and 60 degrees")
     vector = config["vectorization"]
-    rows, cols, count = int(vector["grid_rows"]), int(vector["grid_cols"]), int(vector["default_num_envs"])
+    rows, cols, count = (
+        int(vector["grid_rows"]),
+        int(vector["grid_cols"]),
+        int(vector["default_num_envs"]),
+    )
     if rows * cols != count:
         raise ValueError("grid_rows * grid_cols must equal default_num_envs")
     patch = tuple(float(value) for value in vector["patch_size_m"])
@@ -98,27 +102,60 @@ def required_cartesian_cases(config: dict[str, Any]) -> list[TerrainCase]:
     for surface, incline, hazard, mode in product(surfaces, inclines, hazards, modes):
         surface_id, family = surface
         key = f"{surface_id}|{incline:.6g}|{hazard}|{mode}|0"
-        cases.append(TerrainCase(surface_id, family, incline, hazard, mode, 0, sha256(key.encode()).hexdigest()[:16]))
+        cases.append(
+            TerrainCase(
+                surface_id, family, incline, hazard, mode, 0, sha256(key.encode()).hexdigest()[:16]
+            )
+        )
     return cases
 
 
-def assign_cases(config: dict[str, Any], *, num_envs: int | None = None, seed: int = 0) -> list[TerrainCase]:
+def assign_cases(
+    config: dict[str, Any], *, num_envs: int | None = None, seed: int = 0
+) -> list[TerrainCase]:
     required = required_cartesian_cases(config)
     count = vector_layout(config).num_envs if num_envs is None else int(num_envs)
     if count < len(required):
-        raise ValueError(f"{count} environments cannot cover {len(required)} required Cartesian cases")
+        raise ValueError(
+            f"{count} environments cannot cover {len(required)} required Cartesian cases"
+        )
     result = list(required)
+    if count == len(required):
+        return result
     rng = np.random.default_rng(seed)
-    repetition = 1
-    while len(result) < count:
-        order = rng.permutation(len(required))
-        for index in order:
-            base = required[int(index)]
-            key = f"{base.surface_id}|{base.incline_deg:.6g}|{base.hazard_id}|{base.contact_mode_id}|{repetition}"
-            result.append(TerrainCase(base.surface_id, base.surface_family, base.incline_deg, base.hazard_id, base.contact_mode_id, repetition, sha256(key.encode()).hexdigest()[:16]))
-            if len(result) == count:
-                break
-        repetition += 1
+    hazard_weights = config.get("assignment", {}).get("remainder_hazard_weights", {})
+    probabilities = np.asarray(
+        [float(hazard_weights.get(case.hazard_id, 1.0)) for case in required], dtype=float
+    )
+    if (
+        not np.isfinite(probabilities).all()
+        or np.any(probabilities < 0.0)
+        or probabilities.sum() <= 0
+    ):
+        raise ValueError("Remainder hazard weights must be finite, non-negative, and non-zero")
+    probabilities /= probabilities.sum()
+    selected = rng.choice(len(required), size=count - len(required), replace=True, p=probabilities)
+    repetitions = np.zeros(len(required), dtype=int)
+    for selected_index in selected:
+        index = int(selected_index)
+        repetitions[index] += 1
+        repetition = int(repetitions[index])
+        base = required[index]
+        key = (
+            f"{base.surface_id}|{base.incline_deg:.6g}|{base.hazard_id}|"
+            f"{base.contact_mode_id}|{repetition}"
+        )
+        result.append(
+            TerrainCase(
+                base.surface_id,
+                base.surface_family,
+                base.incline_deg,
+                base.hazard_id,
+                base.contact_mode_id,
+                repetition,
+                sha256(key.encode()).hexdigest()[:16],
+            )
+        )
     return result
 
 

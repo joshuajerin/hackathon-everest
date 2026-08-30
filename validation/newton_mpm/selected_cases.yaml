@@ -1,0 +1,60 @@
+schema_version: 1.0.0
+claim_boundary: >-
+  Offline simulator discrepancy test only. Inputs are project-authored or weak literature
+  priors, not calibrated Everest snow, crampon hardware, or ground truth. Newton results
+  never enter visible policy inputs.
+newton:
+  version: 1.5.1
+  upstream_commit: 17c82b57c0cf369ee23baa776636fc633b82ccfa
+  solver: SolverImplicitMPM
+case:
+  id: western_cwm_consolidated_snow_single_spike_recontact
+  surface_id: western_cwm_consolidated_snow
+  hazard_id: none
+  incline_deg: 0.0
+  contact_mode_id: front_point_contact
+  scope: intact_snow_only_no_crust_no_void
+geometry:
+  analytical_tip_radius_m: 0.0004
+  analytical_half_angle_deg: 30.0
+  analytical_shank_radius_m: 0.003
+  newton_cone_radius_m: 0.003
+  newton_cone_half_height_m: 0.006
+  geometry_limit: >-
+    Newton cone is sharp and the sub-millimeter analytical tip is unresolved at the
+    selected 1-2 mm voxel sizes.
+trajectory:
+  indentation_speed_mps: 0.02
+  maximum_depth_m: 0.012
+  phases: [load, unload, reload]
+  probe_speed_provenance: weak_MOSAiC_SMP_prior_not_crampon_ground_truth
+bed:
+  size_xyz_m: [0.06, 0.06, 0.03]
+material:
+  density_kg_per_m3: 400.0
+  young_modulus_pa: 1400000.0
+  poisson_ratio: 0.2
+  friction: 0.3
+  damping_s: 0.0
+  yield_pressure_pa: 1400000.0
+  tensile_yield_ratio: 0.5
+  yield_stress_pa: 0.0
+  hardening: 10.0
+  dilatancy: 0.0
+  provenance: exploratory_Newton_example_defaults_not_a_mapping_from_analytical_N_per_m
+numerics:
+  voxel_sizes_m: [0.002, 0.001]
+  dt_s: 0.002
+  grid_type: dense
+  collider_velocity_mode: backward
+  max_iterations: 100
+  tolerance: 0.0001
+acceptance:
+  require_both_voxel_runs: true
+  report_without_ground_truth_thresholds:
+    - peak_force_n
+    - loading_work_j
+    - hysteresis_area_j
+    - second_to_first_peak_ratio
+    - residual_crater_m
+    - force_depth_nrmse_between_voxel_sizes

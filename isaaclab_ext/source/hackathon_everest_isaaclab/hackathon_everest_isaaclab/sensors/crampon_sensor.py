@@ -105,6 +105,7 @@ class CramponSensorAdapter:
         self._previous_values: Any | None = None
         self._sample_age_s: Any | None = None
         self._last_timestamp_s: Any | None = None
+        self._force_fresh_environment_ids: tuple[int, ...] = ()
 
     @staticmethod
     def _copy(value: Any) -> Any:
@@ -115,10 +116,12 @@ class CramponSensorAdapter:
         expected_shape = tuple(packet_values.shape[:-1])
         if _is_torch_tensor(packet_values):
             if _is_torch_tensor(timestamp_s):
-                result = timestamp_s.to(device=packet_values.device, dtype=packet_values.dtype)
+                if not timestamp_s.is_floating_point():
+                    raise TypeError("timestamp_s must be floating-point")
+                result = timestamp_s.to(device=packet_values.device)
             else:
                 result = torch.as_tensor(
-                    timestamp_s, device=packet_values.device, dtype=packet_values.dtype
+                    timestamp_s, device=packet_values.device, dtype=torch.float64
                 )
             if result.ndim == 0:
                 result = result.expand(expected_shape)
@@ -126,7 +129,9 @@ class CramponSensorAdapter:
                 raise ValueError(f"timestamp_s must have shape {expected_shape}")
             return result
 
-        result = np.asarray(timestamp_s, dtype=packet_values.dtype)
+        result = np.asarray(timestamp_s)
+        if not np.issubdtype(result.dtype, np.floating):
+            result = result.astype(np.float64)
         if result.ndim == 0:
             result = np.broadcast_to(result, expected_shape).copy()
         if tuple(result.shape) != expected_shape:
@@ -180,6 +185,23 @@ class CramponSensorAdapter:
             raise ValueError("Packet timestamps must advance by exactly the configured period")
         return delta
 
+    def reset(self) -> None:
+        """Clear all packet hold/cadence state for a new batch lifecycle."""
+        self._previous_values = None
+        self._sample_age_s = None
+        self._last_timestamp_s = None
+        self._force_fresh_environment_ids = ()
+
+    def mark_environment_reset(self, environment_ids: Any) -> None:
+        """Force the next packet fresh for selected vector environments."""
+        if _is_torch_tensor(environment_ids):
+            ids = environment_ids.detach().to(device="cpu", dtype=torch.long).tolist()
+        else:
+            ids = np.asarray(environment_ids, dtype=np.int64).reshape(-1).tolist()
+        if any(int(index) < 0 for index in ids):
+            raise ValueError("environment_ids must be non-negative")
+        self._force_fresh_environment_ids = tuple(sorted({int(index) for index in ids}))
+
     def observe(
         self,
         *,
@@ -229,9 +251,12 @@ class CramponSensorAdapter:
                 if fresh_mask is not None
                 else self._random_fresh_mask(packet_values)
             )
+            if self._force_fresh_environment_ids:
+                valid_mask[list(self._force_fresh_environment_ids)] = True
+                self._force_fresh_environment_ids = ()
             if _is_torch_tensor(packet_values):
                 visible_values = torch.where(valid_mask, packet_values, self._previous_values)
-                age_increment = delta.unsqueeze(-1)
+                age_increment = delta.to(dtype=packet_values.dtype).unsqueeze(-1)
                 sample_age = torch.where(
                     valid_mask,
                     torch.zeros_like(packet_values),
@@ -239,7 +264,7 @@ class CramponSensorAdapter:
                 )
             else:
                 visible_values = np.where(valid_mask, packet_values, self._previous_values)
-                age_increment = delta[..., None]
+                age_increment = delta.astype(packet_values.dtype, copy=False)[..., None]
                 sample_age = np.where(
                     valid_mask,
                     np.zeros_like(packet_values),

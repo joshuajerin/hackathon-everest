@@ -20,7 +20,9 @@ def test_every_surface_is_crossed_with_every_incline() -> None:
     inclines = {float(value) for value in config["inclines_deg"]}
     observed = {(case.surface_id, case.incline_deg) for case in cases}
     assert observed == {(surface, incline) for surface in surfaces for incline in inclines}
-    assert len(cases) == len(surfaces) * len(inclines) * len(config["hazards"]) * len(config["contact_modes"])
+    assert len(cases) == len(surfaces) * len(inclines) * len(config["hazards"]) * len(
+        config["contact_modes"]
+    )
 
 
 def test_4096_environment_assignment_covers_required_suite_without_colliding_origins() -> None:
@@ -34,10 +36,12 @@ def test_4096_environment_assignment_covers_required_suite_without_colliding_ori
     assert len(np.unique(origins[:, :2], axis=0)) == layout.num_envs
     assert np.isclose(np.min(np.diff(np.unique(origins[:, 0]))), layout.cell_spacing_m)
     assert layout.cell_spacing_m > max(layout.patch_size_m)
+    hazards = [case.hazard_id for case in assigned]
+    assert hazards.count("none") > hazards.count("open_crevasse_gap")
 
 
 def test_slope_normal_matches_configured_incline() -> None:
     assert np.allclose(slope_normal(0), [0.0, 0.0, 1.0])
     normal = slope_normal(45)
     assert np.isclose(np.linalg.norm(normal), 1.0)
-    assert np.allclose(normal, [-2**-0.5, 0.0, 2**-0.5])
+    assert np.allclose(normal, [-(2**-0.5), 0.0, 2**-0.5])

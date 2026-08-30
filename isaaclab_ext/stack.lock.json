@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0.0",
+  "platform": {
+    "os": "Ubuntu 22.04.5 LTS",
+    "kernel": "6.8.0-1046-nvidia",
+    "gpu": "NVIDIA A100-SXM4-40GB",
+    "vram_mib": 40960,
+    "driver": "580.105.08"
+  },
+  "runtime": {
+    "python": "3.12.14",
+    "isaac_sim_pip": "6.0.1.0",
+    "isaac_lab_tag": "v3.0.0-beta2.patch1",
+    "isaac_lab_commit": "ffff603eafc6b74264a5261cc0183d6a65390d78",
+    "isaac_lab_distribution_version": "6.1.14",
+    "torch": "2.10.0+cu128",
+    "rsl_rl_lib": "5.0.1"
+  },
+  "assets": {
+    "crampon_source_usdc_sha256": "53703057dff7ea5b2e7e468164289d6c0aba629400952c9a8a9a5f7048f2a660",
+    "official_g1_minimal_usd_sha256": "4f5e0600f24bed04d4c45b3921b6f3d7b6205463b0b1ac051cf2883dd3aaee67",
+    "clean_crampon_payload_sha256": "bb2c392dc8d82c12fbc9cc95353e3bfbd3b4c8bd93b129b54c0b22b9bf6baf6b",
+    "composed_g1_crampon_usdc_sha256": "95b571ec9cbd8434c26bcfe991f068c678eab8822f305302e9399685d76038f1"
+  },
+  "stock_g1_rough": {
+    "checkpoint_sha256": "e0834ec91a204855ea681fa50cc19ebca59799ccca06cc104b0d2aee55068f49",
+    "policy_torchscript_sha256": "6ee4484f4ea1054a667df5b30a6d4f5c037b80103dd6df084aa76d488d2c53ab",
+    "policy_onnx_sha256": "bfdc1ac1e9cd54cb1c2824eea8f97675a296839dbad61e287a02ca62225383b9",
+    "policy_onnx_data_sha256": "9d29b67be02188350e525f390aea8d164cbd8c671af18caf0c64ae32fac00b7f",
+    "io_descriptor_sha256": "950475d23dc98db091ff4af91b615eb3af4e1cc6653759d7b5dbde9b0d97f1c5",
+    "action_count": 37,
+    "observation_count": 310
+  },
+  "dataset": {
+    "id": "everest_l0_probe_10k_v1",
+    "episodes": 10000,
+    "packet_steps": 31,
+    "packet_rate_hz": 100,
+    "physics_dt_s": 0.005,
+    "split": "65/10/10/15 group-hashed"
+  },
+  "claim_boundary": "Simulator lock file. It is not hardware calibration or a real-Mount-Everest digital-twin claim."
+}

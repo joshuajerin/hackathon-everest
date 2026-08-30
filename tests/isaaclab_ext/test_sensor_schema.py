@@ -187,3 +187,68 @@ def test_torch_path_preserves_device_and_never_round_trips_through_numpy() -> No
     assert isinstance(result.valid_mask, torch.Tensor)
     assert result.packet_values.device == groups[0].device
     assert tuple(result.packet_values.shape) == (1, 2, 19)
+
+
+@pytest.mark.skipif(importlib.util.find_spec("torch") is None, reason="Torch extra not installed")
+def test_float32_packets_keep_exact_cadence_beyond_sixteen_seconds() -> None:
+    import torch
+
+    groups = tuple(torch.as_tensor(value, dtype=torch.float32) for value in _channel_groups())
+    adapter = CramponSensorAdapter(
+        CramponSensorConfig(sample_drop_probability=0.0, cadence_tolerance_s=1.0e-9)
+    )
+    result = None
+    for sample in range(2_001):
+        timestamp = torch.full((1, 2), sample * 0.01, dtype=torch.float64)
+        result = adapter.observe(
+            axial_force_n=groups[0],
+            penetration_m=groups[1],
+            accelerometer_mps2=groups[2],
+            gyroscope_rps=groups[3],
+            radar_frontend=groups[4],
+            timestamp_s=timestamp,
+        )
+    assert result is not None
+    assert result.timestamp_s.dtype == torch.float64
+    assert result.sample_age_s.dtype == torch.float32
+    torch.testing.assert_close(result.timestamp_s, torch.full((1, 2), 20.0, dtype=torch.float64))
+
+
+def test_vector_environment_reset_forces_fresh_packet_without_breaking_global_cadence() -> None:
+    adapter = CramponSensorAdapter(CramponSensorConfig(sample_drop_probability=0.0))
+    groups = tuple(np.repeat(value, 2, axis=0) for value in _channel_groups())
+    first = adapter.observe(
+        axial_force_n=groups[0],
+        penetration_m=groups[1],
+        accelerometer_mps2=groups[2],
+        gyroscope_rps=groups[3],
+        radar_frontend=groups[4],
+        timestamp_s=0.0,
+    )
+    adapter.mark_environment_reset(np.array([1]))
+    changed = tuple(value + 500.0 for value in groups)
+    second = adapter.observe(
+        axial_force_n=changed[0],
+        penetration_m=changed[1],
+        accelerometer_mps2=changed[2],
+        gyroscope_rps=changed[3],
+        radar_frontend=changed[4],
+        timestamp_s=0.01,
+        fresh_mask=np.zeros((2, 2, 19), dtype=bool),
+    )
+    np.testing.assert_array_equal(second.packet_values[0], first.packet_values[0])
+    np.testing.assert_array_equal(second.packet_values[1], pack_channel_groups(*changed)[1])
+    assert not second.valid_mask[0].any()
+    assert second.valid_mask[1].all()
+    assert np.all(second.sample_age_s[1] == 0.0)
+
+    adapter.reset()
+    restarted = adapter.observe(
+        axial_force_n=groups[0],
+        penetration_m=groups[1],
+        accelerometer_mps2=groups[2],
+        gyroscope_rps=groups[3],
+        radar_frontend=groups[4],
+        timestamp_s=0.0,
+    )
+    assert restarted.valid_mask.all()

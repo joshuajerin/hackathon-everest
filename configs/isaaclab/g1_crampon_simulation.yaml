@@ -1,0 +1,87 @@
+schema_version: 1.0.0
+status: simulator_configuration_not_hardware_calibration
+authority: configs/isaaclab/g1_crampon_asset.yaml
+official_g1:
+  isaac_sim_release: 6.0.1
+  source_uri: https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/IsaacLab/Robots/Unitree/G1/g1_minimal.usd
+  local_source: /lambda/nfs/prime/everest/assets/official_g1_isaac6/g1_minimal.usd
+  sha256: 4f5e0600f24bed04d4c45b3921b6f3d7b6205463b0b1ac051cf2883dd3aaee67
+  default_prim: /g1
+  ankle_links:
+    left: /g1/left_ankle_roll_link
+    right: /g1/right_ankle_roll_link
+  stock_support_collisions_to_disable:
+  - /g1/left_ankle_roll_link/Cube
+  - /g1/right_ankle_roll_link/Cube
+analytical_probes:
+  source: project-authored four-zone analytical contact layout
+  axis_ankle_local:
+  - 0.0
+  - 0.0
+  - -1.0
+  radius_m: 0.004
+  virtual_travel_m: 0.055
+  hard_ice_bootstrap_virtual_travel_m: 0.012
+  travel_claim_boundary: project_authored_surface_curriculum_prior_not_measured_hardware
+  ankle_local_z_m: -0.081012
+  xy_m:
+  - - 0.081
+    - 0.0486
+  - - 0.081
+    - -0.0486
+  - - -0.081
+    - 0.0486
+  - - -0.081
+    - -0.0486
+  visual_mesh_collision: false
+  rigid_baseline_native_probe_collision: true
+  stateful_material_native_probe_collision: false
+  tangential_velocity_gain_ns_per_m: 400.0
+  tangential_gain_claim_boundary: project_authored_simulator_prior_not_hardware_calibration
+  hard_stop:
+    status: project_authored_simulator_prior_not_hardware_calibration
+    stiffness_n_per_m: 10000.0
+    damping_ns_per_m: 100.0
+    maximum_force_per_probe_n: 500.0
+    starts_after_virtual_travel_m: 0.055
+    disabled_for_void_probes: true
+policy_safety_priors:
+  status: project_authored_simulator_policy_prior_not_hardware_calibration
+  minimum_bearing_capacity_n: 343.0
+  fracture_damage_caution: 0.45
+  degraded_slip_margin_n: -40.0
+  severe_slip_margin_n: -100.0
+  supervisor_validation_maximum_unsafe_commit_rate: 0.0015
+  semantics: >-
+    Evaluate available stance support rather than treating a separated swing foot as
+    unsafe. Severe bilateral loss requests recovery; degraded support holds; ordinary
+    hard-ice spike fracture remains usable while post-fracture bearing and damage stay
+    inside the simulator envelope.
+mass_properties:
+  status: uncalibrated_simulation_prior
+  nominal_added_mass_per_foot_kg: 0.45
+  training_randomization_range_kg:
+  - 0.3
+  - 0.75
+  nominal_com_ankle_local_m:
+  - 0.0412229784
+  - 0.0008915653
+  - -0.0418330878
+  box_envelope_m:
+  - 0.283
+  - 0.101
+  - 0.079
+  hardware_gate: Replace with measured assembly mass, center of mass, and inertia
+    before real-humanoid deployment.
+claim_boundary: Probe geometry and mass properties are project-authored simulator
+  values. They are not manufacturer specifications or measured hardware calibration.
+  The 26 visual component transforms remain governed by the authoritative USDC, Blender
+  fit, and authority YAML.
+
+contact_mode_rear_load_fraction_targets:
+  all_points_flat_foot: 0.50
+  hybrid_contact: 0.35
+  front_point_contact: 0.20
+  claim_boundary: >-
+    Project-authored simulator gait-loading targets selected from native stability and
+    smoothness sweeps; not measured G1 hardware calibration or mountaineering guidance.

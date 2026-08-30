@@ -81,7 +81,9 @@ class BatchedStatefulMaterial:
     def _assert_input(self, value: torch.Tensor, name: str) -> torch.Tensor:
         value = value.to(device=self.parameters.material_code.device, dtype=torch.float32)
         if value.shape != self.parameters.shape:
-            raise ValueError(f"{name} must have shape {tuple(self.parameters.shape)}, got {tuple(value.shape)}")
+            raise ValueError(
+                f"{name} must have shape {tuple(self.parameters.shape)}, got {tuple(value.shape)}"
+            )
         if not torch.isfinite(value).all():
             raise ValueError(f"{name} contains non-finite values")
         return value
@@ -102,7 +104,9 @@ class BatchedStatefulMaterial:
         rate = self._assert_input(penetration_rate_mps, "penetration_rate_mps")
         lateral = torch.abs(self._assert_input(lateral_speed_mps, "lateral_speed_mps"))
         load = torch.clamp(self._assert_input(applied_load_n, "applied_load_n"), min=0.0)
-        demand = torch.clamp(self._assert_input(tangential_demand_n, "tangential_demand_n"), min=0.0)
+        demand = torch.clamp(
+            self._assert_input(tangential_demand_n, "tangential_demand_n"), min=0.0
+        )
         p = self.parameters
         loading_increment = torch.clamp(depth - self.last_penetration_m, min=0.0)
         is_ice = p.material_code == ICE
@@ -115,12 +119,23 @@ class BatchedStatefulMaterial:
         snow_force = effective_k * torch.pow(snow_depth, 1.12)
         snow_force += p.damping_ns_per_m * torch.clamp(rate, min=0.0)
         snow_force += 3.0 * effective_k * torch.clamp(snow_depth - p.support_layer_depth_m, min=0.0)
-        inside_void = p.void_present & (snow_depth >= p.void_top_depth_m) & (snow_depth <= p.void_top_depth_m + p.void_height_m)
-        snow_force = torch.where(inside_void, 0.08 * snow_force, snow_force)
+        inside_void = (
+            p.void_present
+            & (depth >= p.void_top_depth_m)
+            & (depth <= p.void_top_depth_m + p.void_height_m)
+        )
         crust_intact = (p.crust_thickness_m > 0.0) & ~self.fractured
-        crust_progress = torch.clamp(snow_depth / torch.clamp(p.crust_thickness_m, min=1e-6), 0.0, 1.0)
-        snow_force += torch.where(crust_intact, 0.25 * p.fracture_strength_n * torch.pow(crust_progress, 1.5), 0.0)
-        snow_fracture = crust_intact & (snow_depth >= p.crust_thickness_m) & (4.0 * load >= p.fracture_strength_n)
+        crust_progress = torch.clamp(
+            snow_depth / torch.clamp(p.crust_thickness_m, min=1e-6), 0.0, 1.0
+        )
+        snow_force += torch.where(
+            crust_intact, 0.25 * p.fracture_strength_n * torch.pow(crust_progress, 1.5), 0.0
+        )
+        snow_fracture = (
+            crust_intact
+            & (snow_depth >= p.crust_thickness_m)
+            & (4.0 * load >= p.fracture_strength_n)
+        )
 
         # Sharp-spike ice response, including irreversible fracture and breakout memory.
         ice_depth = torch.clamp(depth - self.residual_crater_depth_m, min=0.0)
@@ -137,16 +152,33 @@ class BatchedStatefulMaterial:
         just_fractured = torch.where(uses_ice, ice_fracture, snow_fracture)
         self.fractured |= just_fractured
         new_crater = torch.where(uses_ice, 0.55 * depth, 0.15 * depth)
-        self.residual_crater_depth_m = torch.where(just_fractured, torch.maximum(self.residual_crater_depth_m, new_crater), self.residual_crater_depth_m)
+        self.residual_crater_depth_m = torch.where(
+            just_fractured,
+            torch.maximum(self.residual_crater_depth_m, new_crater),
+            self.residual_crater_depth_m,
+        )
         strength_ratio = torch.where(self.fractured, p.ice_post_fracture_strength_ratio, 1.0)
-        ice_force = p.ice_indentation_pressure_pa * area * strength_ratio + p.damping_ns_per_m * torch.clamp(rate, min=0.0)
+        ice_force = (
+            p.ice_indentation_pressure_pa * area * strength_ratio
+            + p.damping_ns_per_m * torch.clamp(rate, min=0.0)
+        )
 
         raw_force = torch.where(uses_ice, ice_force, snow_force)
-        bearing_per_probe = torch.clamp(p.bearing_capacity_n * (1.0 - 0.5 * self.damage) / 4.0, min=0.0)
-        force_cap = torch.minimum(p.maximum_probe_force_n, load)
-        normal_force = torch.minimum(torch.clamp(raw_force, min=0.0), torch.minimum(force_cap, bearing_per_probe))
+        raw_force = torch.where(inside_void, 0.08 * raw_force, raw_force)
+        bearing_per_probe = torch.clamp(
+            p.bearing_capacity_n * (1.0 - 0.5 * self.damage) / 4.0, min=0.0
+        )
+        # ``applied_load_n`` is a commanded/test load used for fracture state; it is
+        # not a reaction-force ceiling. Dynamic impacts must be able to exceed the
+        # static load or an articulated foot can never decelerate before bottoming out.
+        force_cap = p.maximum_probe_force_n
+        normal_force = torch.minimum(
+            torch.clamp(raw_force, min=0.0), torch.minimum(force_cap, bearing_per_probe)
+        )
 
-        self.loading_work_j = torch.where(uses_ice, ice_work_next, self.loading_work_j + normal_force * loading_increment)
+        self.loading_work_j = torch.where(
+            uses_ice, ice_work_next, self.loading_work_j + normal_force * loading_increment
+        )
         self.maximum_penetration_m = torch.maximum(self.maximum_penetration_m, depth)
         self.lateral_displacement_m += lateral * float(dt_s)
         self.broken_out |= self.lateral_displacement_m >= p.breakout_displacement_m
@@ -154,36 +186,93 @@ class BatchedStatefulMaterial:
         engagement = torch.clamp(depth / 0.012, 0.0, 1.0)
         snow_shear = p.friction * normal_force + 0.25 * p.shear_capacity_n * engagement
         frontal_area = 2.0 * radius * ice_depth
-        ploughing = p.ice_indentation_pressure_pa * frontal_area * torch.where(self.broken_out, 0.25, 1.0)
+        ploughing = (
+            p.ice_indentation_pressure_pa * frontal_area * torch.where(self.broken_out, 0.25, 1.0)
+        )
         ice_shear = p.friction * normal_force + ploughing
         shear = torch.where(uses_ice, ice_shear, snow_shear)
-        shear = torch.clamp(shear, min=0.0, max=2.0 * p.maximum_probe_force_n)
-        utilization = demand / torch.clamp(shear, min=1e-6)
-        slipping = demand > shear
-
+        shear = torch.minimum(torch.clamp(shear, min=0.0), 2.0 * p.maximum_probe_force_n)
         contact = depth > 0.0
+        utilization = torch.where(contact, demand / torch.clamp(shear, min=1e-6), 0.0)
+        slipping = contact & (demand > shear)
+
         load_ratio = normal_force / torch.clamp(bearing_per_probe, min=1.0)
-        compaction_delta = torch.clamp((0.12 * load_ratio + 2.0 * loading_increment) * contact, 0.0, 0.25)
+        compaction_delta = torch.clamp(
+            (0.12 * load_ratio * float(dt_s) + 2.0 * loading_increment) * contact,
+            0.0,
+            0.25,
+        )
         self.compaction = torch.clamp(self.compaction + compaction_delta, 0.0, 1.0)
-        damage_delta = torch.where(just_fractured, 0.30, torch.clamp(0.20 * (load_ratio - 0.8), 0.0, 0.20))
+        damage_delta = torch.where(
+            just_fractured,
+            0.30,
+            torch.clamp(0.20 * (load_ratio - 0.8) * float(dt_s), 0.0, 0.20),
+        )
         self.damage = torch.clamp(self.damage + damage_delta * contact, 0.0, 1.0)
         self.last_penetration_m = depth
 
-        for name, value in {"normal_force_n": normal_force, "shear_capacity_n": shear, "friction_utilization": utilization}.items():
+        for name, value in {
+            "normal_force_n": normal_force,
+            "shear_capacity_n": shear,
+            "friction_utilization": utilization,
+        }.items():
             if not torch.isfinite(value).all():
                 raise RuntimeError(f"Non-finite {name}")
-        return MaterialResponse(normal_force, shear, utilization, slipping, self.fractured.clone(), self.broken_out.clone(), self.damage.clone(), self.residual_crater_depth_m.clone())
+        return MaterialResponse(
+            normal_force,
+            shear,
+            utilization,
+            slipping,
+            self.fractured.clone(),
+            self.broken_out.clone(),
+            self.damage.clone(),
+            self.residual_crater_depth_m.clone(),
+        )
 
     def lift(self, environment_ids: torch.Tensor | None = None) -> None:
-        """Reset contact motion only; persistent terrain damage is deliberately retained."""
-        ids = slice(None) if environment_ids is None else environment_ids.to(device=self.last_penetration_m.device, dtype=torch.long)
+        """Reset per-contact motion/work; persistent terrain damage is deliberately retained."""
+        ids = (
+            slice(None)
+            if environment_ids is None
+            else environment_ids.to(device=self.last_penetration_m.device, dtype=torch.long)
+        )
         self.last_penetration_m[ids] = 0.0
+        # Fracture energy is an indentation event for the current contact patch.
+        # It must not add across distinct foot placements after a full lift.
+        self.loading_work_j[ids] = 0.0
         self.lateral_displacement_m[ids] = 0.0
         self.broken_out[ids] = False
 
+    def lift_probes(self, lift_mask: torch.Tensor) -> None:
+        """Clear contact-motion memory per separated probe; retain terrain damage."""
+        mask = lift_mask.to(device=self.last_penetration_m.device, dtype=torch.bool)
+        expected = tuple(self.last_penetration_m.shape)
+        if tuple(mask.shape) != expected:
+            raise ValueError(f"lift_mask must have shape {expected}")
+        self.last_penetration_m.masked_fill_(mask, 0.0)
+        self.loading_work_j.masked_fill_(mask, 0.0)
+        self.lateral_displacement_m.masked_fill_(mask, 0.0)
+        self.broken_out.masked_fill_(mask, False)
+
+    def lift_feet(self, lift_mask: torch.Tensor) -> None:
+        """Clear contact-motion memory for selected feet while retaining terrain damage."""
+        mask = lift_mask.to(device=self.last_penetration_m.device, dtype=torch.bool)
+        expected = tuple(self.last_penetration_m.shape[:2])
+        if tuple(mask.shape) != expected:
+            raise ValueError(f"lift_mask must have shape {expected}")
+        self.lift_probes(mask.unsqueeze(-1).expand_as(self.last_penetration_m))
+
     def reset_worlds(self, environment_ids: torch.Tensor) -> None:
         ids = environment_ids.to(device=self.last_penetration_m.device, dtype=torch.long)
-        for name in ("maximum_penetration_m", "loading_work_j", "lateral_displacement_m", "residual_crater_depth_m", "last_penetration_m", "compaction", "damage"):
+        for name in (
+            "maximum_penetration_m",
+            "loading_work_j",
+            "lateral_displacement_m",
+            "residual_crater_depth_m",
+            "last_penetration_m",
+            "compaction",
+            "damage",
+        ):
             getattr(self, name)[ids] = 0.0
         self.fractured[ids] = False
         self.broken_out[ids] = False

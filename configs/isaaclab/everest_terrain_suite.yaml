@@ -25,54 +25,79 @@ surfaces:
     configured_depth_m: 0.05
     visual_asset: polyhaven/snow_floor
     physics_model: stateful_snow
+    physics_prior: snow_patchy
   - id: western_cwm_consolidated_snow
     family: snow
     route_context: Western Cwm aged consolidated snow visual proxy
     configured_depth_m: 0.12
     visual_asset: polyhaven/snow_02
     physics_model: stateful_snow
+    physics_prior: snow_consolidated
   - id: lhotse_boot_packed_snow
     family: snow
     route_context: Lhotse approach boot-packed trail visual proxy
     configured_depth_m: 0.20
     visual_asset: polyhaven/snow_01
     physics_model: stateful_snow
+    physics_prior: snow_boot_packed
   - id: south_col_wind_pack
     family: snow
     route_context: South Col wind-packed firn visual proxy
     configured_depth_m: 0.30
     visual_asset: polyhaven/snow_03
     physics_model: stateful_snow
+    physics_prior: snow_wind_pack
   - id: summit_ridge_drift
     family: snow
     route_context: Summit ridge fresh-drift visual proxy
     configured_depth_m: 0.50
     visual_asset: polyhaven/snow_field_aerial
     physics_model: stateful_snow
+    physics_prior: snow_fresh_drift
   - id: hard_glacier_ice
     family: ice
     route_context: Hard glacier ice visual proxy
     configured_depth_m: 0.30
     visual_asset: ambientcg/Ice001
     physics_model: stateful_ice
+    physics_prior: ice_hard
   - id: fractured_blue_ice
     family: ice
     route_context: Fractured blue-ice visual proxy
     configured_depth_m: 0.30
     visual_asset: ambientcg/Ice002
     physics_model: stateful_ice
+    physics_prior: ice_fractured
   - id: polished_wind_ice
     family: ice
     route_context: Wind-polished ice visual proxy
     configured_depth_m: 0.20
     visual_asset: ambientcg/Ice003
     physics_model: stateful_ice
+    physics_prior: ice_polished
   - id: thin_snow_over_ice
     family: layered
     route_context: Thin snow crust over hard ice visual proxy
     configured_depth_m: 0.04
     visual_asset: ambientcg/Ice004+polyhaven/snow_02
     physics_model: stateful_layered_snow_ice
+    physics_prior: layered_snow_ice
+
+physics_prior_claim_boundary: >-
+  The following broad ranges are project-authored simulator priors derived from the
+  existing reduced-order snow/ice model bounds. They are not Everest measurements and
+  must be replaced or updated by crampon rig calibration before hardware deployment.
+physics_priors:
+  snow_patchy: {stiffness_n_per_m: [4000, 18000], damping_ns_per_m: [25, 85], bearing_n: [160, 500], shear_n: [60, 260], friction: [0.18, 0.60], crust_m: [0.0, 0.012]}
+  snow_consolidated: {stiffness_n_per_m: [15000, 40000], damping_ns_per_m: [35, 110], bearing_n: [300, 800], shear_n: [140, 480], friction: [0.28, 0.70], crust_m: [0.0, 0.020]}
+  snow_boot_packed: {stiffness_n_per_m: [25000, 60000], damping_ns_per_m: [45, 140], bearing_n: [400, 900], shear_n: [200, 600], friction: [0.35, 0.75], crust_m: [0.0, 0.012]}
+  snow_wind_pack: {stiffness_n_per_m: [20000, 55000], damping_ns_per_m: [35, 120], bearing_n: [330, 850], shear_n: [150, 520], friction: [0.24, 0.68], crust_m: [0.002, 0.030]}
+  snow_fresh_drift: {stiffness_n_per_m: [2500, 12000], damping_ns_per_m: [20, 75], bearing_n: [100, 350], shear_n: [35, 180], friction: [0.12, 0.48], crust_m: [0.0, 0.008]}
+  # Project-authored contact-event prior: native frozen-G1 trials showed 0.05–0.35 J fractures every normal hard-ice stance. The 100–1000 J interval preserves intact nominal contacts while lower-energy ice categories retain fracture examples.
+  ice_hard: {indentation_pressure_pa: [35000000, 73000000], damping_ns_per_m: [20, 120], bearing_n: [500, 1000], shear_n: [100, 500], friction: [0.03, 0.16], fracture_energy_j: [100, 1000]}
+  ice_fractured: {indentation_pressure_pa: [22000000, 58000000], damping_ns_per_m: [20, 110], bearing_n: [300, 850], shear_n: [80, 420], friction: [0.04, 0.18], fracture_energy_j: [0.025, 0.20]}
+  ice_polished: {indentation_pressure_pa: [30000000, 68000000], damping_ns_per_m: [18, 90], bearing_n: [450, 950], shear_n: [50, 300], friction: [0.025, 0.10], fracture_energy_j: [0.04, 0.30]}
+  layered_snow_ice: {stiffness_n_per_m: [5000, 30000], damping_ns_per_m: [25, 110], bearing_n: [250, 850], shear_n: [80, 450], friction: [0.08, 0.55], crust_m: [0.005, 0.040], indentation_pressure_pa: [28000000, 65000000], fracture_energy_j: [0.03, 0.25]}
 
 hazards:
   - id: none
@@ -128,10 +153,24 @@ sensor_fault_modes:
   - packet_latency_burst
 
 assignment:
-  strategy: stratified_cartesian_then_replicated_randomized
+  strategy: stratified_cartesian_then_weighted_remainders
   required_axes: [surface, incline_deg, hazard, contact_mode]
+  remainder_hazard_weights:
+    none: 0.35
+    damaged_previous_footprint: 0.15
+    exposed_ice_patch: 0.15
+    buried_shallow_void: 0.10
+    edge_collapse: 0.10
+    thin_snow_bridge: 0.08
+    buried_deep_void: 0.05
+    open_crevasse_gap: 0.02
   natural_prior_metrics_separate_from_stress_tail: true
   group_descendants_by_world_and_spatial_block: true
+  sensor_fault_schedule:
+    strategy: environment_index_plus_reset_cycle_modulo_6
+    rollout_cycles_for_full_cross: 6
+    physical_cases_per_cycle: 2160
+    case_fault_exposures_after_six_cycles: 12960
 
 validation:
   require_every_surface_at_every_incline: true
