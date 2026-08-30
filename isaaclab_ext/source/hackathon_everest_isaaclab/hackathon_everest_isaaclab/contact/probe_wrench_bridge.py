@@ -82,6 +82,7 @@ class BatchedCramponWrenchBridge:
         hard_stop_damping_ns_per_m: float = DEFAULT_HARD_STOP_DAMPING_NS_PER_M,
         maximum_hard_stop_force_n: float = DEFAULT_MAXIMUM_HARD_STOP_FORCE_N,
         probe_enabled_mask: torch.Tensor | None = None,
+        tangential_grip_scale_by_env: torch.Tensor | Sequence[float] | None = None,
         spatial_void_x_bounds_m: torch.Tensor | None = None,
     ) -> None:
         if native_support_collisions_enabled:
@@ -134,6 +135,24 @@ class BatchedCramponWrenchBridge:
                 )
             if not bool(self.probe_enabled_mask.any(dim=-1).all()):
                 raise ValueError("every foot must keep at least one enabled analytical probe")
+        environment_count = material.parameters.shape[0]
+        if tangential_grip_scale_by_env is None:
+            self.tangential_grip_scale_by_env = torch.ones(
+                environment_count, device=device, dtype=self.dtype
+            )
+        else:
+            self.tangential_grip_scale_by_env = torch.as_tensor(
+                tangential_grip_scale_by_env, device=device, dtype=self.dtype
+            )
+            if self.tangential_grip_scale_by_env.shape != (environment_count,):
+                raise ValueError("tangential_grip_scale_by_env must have one value per environment")
+            if not torch.isfinite(self.tangential_grip_scale_by_env).all() or not bool(
+                (
+                    (self.tangential_grip_scale_by_env >= 0.0)
+                    & (self.tangential_grip_scale_by_env <= 1.0)
+                ).all()
+            ):
+                raise ValueError("tangential_grip_scale_by_env values must be finite and in [0, 1]")
         self._base_void_present = material.parameters.void_present.clone()
         if spatial_void_x_bounds_m is None:
             self.spatial_void_x_bounds_m = torch.full(
@@ -357,7 +376,10 @@ class BatchedCramponWrenchBridge:
         normal_force_magnitude = torch.where(
             contact, response.normal_force_n + hard_stop_force, 0.0
         )
-        tangential_magnitude = torch.minimum(demand_magnitude, response.shear_capacity_n)
+        effective_shear_capacity = (
+            response.shear_capacity_n * self.tangential_grip_scale_by_env[:, None, None]
+        )
+        tangential_magnitude = torch.minimum(demand_magnitude, effective_shear_capacity)
         tangential_magnitude = torch.where(contact, tangential_magnitude, 0.0)
         probe_force = normal_force_magnitude.unsqueeze(-1) * plane_normal
         probe_force -= tangential_magnitude.unsqueeze(-1) * opposition_direction

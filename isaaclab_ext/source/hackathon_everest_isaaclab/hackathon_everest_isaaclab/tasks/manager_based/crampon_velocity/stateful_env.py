@@ -87,6 +87,13 @@ class EverestStatefulCramponEnv(ManagerBasedRLEnv):
         parameters = build_suite_material_parameters(
             suite, self.everest_cases, seed=cfg.everest_suite_seed, device=self.device
         )
+        if cfg.everest_match_material_across_envs:
+            if self.num_envs < 2:
+                raise ValueError(
+                    "everest_match_material_across_envs requires at least two environments"
+                )
+            for value in vars(parameters).values():
+                value[1:] = value[0]
         if cfg.everest_nominal_bootstrap_material:
             # Easy end of the project-authored hard-ice prior, used only as a
             # staged curriculum before randomized material adaptation.
@@ -98,7 +105,6 @@ class EverestStatefulCramponEnv(ManagerBasedRLEnv):
             parameters.ice_fracture_energy_j.fill_(0.30)
             parameters.void_present.zero_()
         material = BatchedStatefulMaterial(parameters)
-        probe_enabled = torch.ones(parameters.shape, dtype=torch.bool, device=self.device)
         spatial_void_bounds = torch.full(
             (self.num_envs, 2), float("nan"), dtype=torch.float32, device=self.device
         )
@@ -124,7 +130,7 @@ class EverestStatefulCramponEnv(ManagerBasedRLEnv):
         self.everest_wrench_bridge = BatchedCramponWrenchBridge(
             material,
             native_support_collisions_enabled=False,
-            probe_enabled_mask=probe_enabled,
+            tangential_grip_scale_by_env=cfg.everest_crampon_grip_scale_by_env,
             spatial_void_x_bounds_m=spatial_void_bounds,
             virtual_travel_m=cfg.everest_virtual_travel_m,
         )

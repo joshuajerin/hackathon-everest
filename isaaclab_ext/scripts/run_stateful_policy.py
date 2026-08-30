@@ -25,14 +25,18 @@ from hackathon_everest_isaaclab.learning.safety_priors import (
 )
 from hackathon_everest_isaaclab.learning.shield import (
     SafetyShield,
+    ShieldAction,
     ShieldConfig,
     ShieldSignals,
     conservative_target_safe,
 )
 from hackathon_everest_isaaclab.runtime import (
+    ContactGatedPolicyCorrection,
+    ContactGatedPolicyCorrectionConfig,
     EverestController,
     EverestControllerConfig,
     acquire_isaac_process_lock,
+    visible_crampon_contact,
 )
 from hackathon_everest_isaaclab.sensors.faults import SENSOR_FAULT_MODES
 from hackathon_everest_isaaclab.tasks import register_cli
@@ -75,6 +79,16 @@ parser.add_argument("--mode", choices=("shadow", "active"), default="shadow")
 parser.add_argument("--stock-policy", type=Path, required=True)
 parser.add_argument("--visible-checkpoint", type=Path, required=True)
 parser.add_argument("--style-reference-policy", type=Path)
+parser.add_argument(
+    "--contact-correction-policy",
+    type=Path,
+    help=(
+        "TorchScript trained bounded-residual policy. Its bounded joint correction is "
+        "blended in only after a fresh visible crampon contact packet."
+    ),
+)
+parser.add_argument("--contact-correction-max-residual", type=float, default=0.12)
+parser.add_argument("--contact-correction-weight-step", type=float, default=0.05)
 parser.add_argument("--output", type=Path, required=True)
 parser.add_argument("--max-terminations", type=int)
 parser.add_argument("--min-base-height-m", type=float)
@@ -241,6 +255,12 @@ def create_showcase_slope(surface_id: str, incline_deg: float) -> None:
 def main() -> int:
     if not 0.0 < args.requested_vx <= 0.80:
         raise ValueError("requested-vx must be in (0.0, 0.80]")
+    if args.contact_correction_policy is not None and args.mode != "active":
+        raise ValueError("contact-correction-policy is only valid in active mode")
+    if not 0.0 < args.contact_correction_max_residual <= 0.35:
+        raise ValueError("contact-correction-max-residual must be in (0.0, 0.35]")
+    if not 0.0 < args.contact_correction_weight_step <= 1.0:
+        raise ValueError("contact-correction-weight-step must be in (0.0, 1.0]")
     env_cfg, _ = resolve_task_config(args.task, "")
     suite_config_path = None
     if args.suite_config is not None:
@@ -297,6 +317,21 @@ def main() -> int:
             if args.style_reference_policy is not None
             else None
         )
+        contact_correction_policy = (
+            torch.jit.load(str(args.contact_correction_policy), map_location=device).eval()
+            if args.contact_correction_policy is not None
+            else None
+        )
+        contact_correction = (
+            ContactGatedPolicyCorrection(
+                ContactGatedPolicyCorrectionConfig(
+                    maximum_weight_step=args.contact_correction_weight_step,
+                    maximum_action_residual=args.contact_correction_max_residual,
+                )
+            )
+            if contact_correction_policy is not None
+            else None
+        )
 
         def stock_action(stock_observation: torch.Tensor) -> torch.Tensor:
             if not args.diagnostic_zero_stock_command and diagnostic_stock_vx is None:
@@ -315,6 +350,36 @@ def main() -> int:
             conditioned = stock_observation.clone()
             conditioned[:, 9:12] = 0.0
             return stock(conditioned).detach()
+
+        def contact_corrected_action(
+            base_action: torch.Tensor,
+            safe_velocity_yaw: torch.Tensor,
+            stock_observation: torch.Tensor,
+            sensor_frame: VisibleSensorBatch,
+            correction_allowed: torch.Tensor,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            """Apply the trained residual only on fresh, shield-approved contact."""
+
+            no_contact = torch.zeros(args.num_envs, dtype=torch.bool, device=device)
+            if contact_correction_policy is None or contact_correction is None:
+                return base_action, no_contact
+            # Never retain a specialist offset when the safety path becomes stale or unsafe.
+            if not bool(correction_allowed.all()) and contact_correction.weight is not None:
+                contact_correction.reset(~correction_allowed)
+            conditioned = stock_observation.clone()
+            conditioned[:, 9:12] = safe_velocity_yaw
+            specialist_action = contact_correction_policy(conditioned).detach()
+            crampon_in_contact = visible_crampon_contact(
+                sensor_frame.packet_values,
+                sensor_frame.valid_mask,
+                sensor_frame.sample_age_s,
+                stale_after_s=controller.config.stale_after_s,
+            )
+            crampon_in_contact &= correction_allowed
+            return (
+                contact_correction.step(base_action, specialist_action, crampon_in_contact),
+                crampon_in_contact,
+            )
 
         checkpoint = torch.load(args.visible_checkpoint, map_location=device, weights_only=False)
         estimator = CausalBilateralEstimator(**checkpoint["estimator_config"]).to(device)
@@ -536,6 +601,10 @@ def main() -> int:
         bearing_absolute_radius_n = checkpoint.get("bearing_capacity_absolute_conformal99_n")
         target_index = {name: index for index, name in enumerate(REGRESSION_NAMES)}
         action_counts: Counter[int] = Counter()
+        contact_correction_ticks = 0
+        contact_correction_action_samples = 0
+        contact_correction_rms_sum = 0.0
+        contact_correction_rms_max = 0.0
         preference_counts: Counter[int] = Counter()
         shield_reason_counts: Counter[int] = Counter()
         predicate_names = (
@@ -641,7 +710,9 @@ def main() -> int:
                 rear_load_fraction_samples += loaded.to(dtype=torch.int64)
             frames = env.unwrapped.pop_everest_sensor_frames()
             output = None
+            latest_sensor_frame: VisibleSensorBatch | None = None
             for frame in frames:
+                latest_sensor_frame = frame
                 context = pack_context(frame)
                 command_context = pack_commands(frame)
                 packet_features = torch.cat(
@@ -787,12 +858,31 @@ def main() -> int:
                         "terminated": int(terminated.sum()),
                     }
                 )
+            correction_contact = torch.zeros(args.num_envs, dtype=torch.bool, device=device)
             if args.mode == "active":
                 action = (
                     output.joint_action
                     if output is not None
                     else safe_hold_action(observation["policy"])
                 )
+                base_action = action
+                if output is not None and latest_sensor_frame is not None:
+                    action, correction_contact = contact_corrected_action(
+                        base_action,
+                        output.safe_command.velocity_yaw,
+                        observation["policy"],
+                        latest_sensor_frame,
+                        (~output.stale)
+                        & (output.shield.action == int(ShieldAction.COMMIT)),
+                    )
+                    correction_rms = (action - base_action).square().mean(dim=-1).sqrt()
+                    contact_correction_ticks += int(correction_contact.sum())
+                    if contact_correction_policy is not None:
+                        contact_correction_action_samples += args.num_envs
+                    contact_correction_rms_sum += float(correction_rms.sum())
+                    contact_correction_rms_max = max(
+                        contact_correction_rms_max, float(correction_rms.max())
+                    )
             else:
                 action = stock_action(observation["policy"])
             action = apply_diagnostic_action_offsets(action)
@@ -823,6 +913,8 @@ def main() -> int:
             previous_joint_action = action.detach().clone()
             if bool(reset_mask.any()):
                 controller.reset_environments(reset_mask)
+                if contact_correction is not None:
+                    contact_correction.reset(reset_mask)
                 previous_valid[reset_mask] = False
                 if args.mode == "active":
                     # Stock/JIT outputs are inference tensors. Clone before a
@@ -983,6 +1075,22 @@ def main() -> int:
             "num_envs": args.num_envs,
             "steps": args.steps,
             "controller_rate_hz": args.controller_rate_hz,
+            "contact_correction": {
+                "enabled": contact_correction_policy is not None,
+                "policy": (
+                    str(args.contact_correction_policy)
+                    if args.contact_correction_policy is not None
+                    else None
+                ),
+                "maximum_action_residual": args.contact_correction_max_residual,
+                "weight_step": args.contact_correction_weight_step,
+                "contact_source": "fresh_visible_axial_force_and_penetration",
+                "contact_ticks": contact_correction_ticks,
+                "mean_action_delta_rms": (
+                    contact_correction_rms_sum / max(contact_correction_action_samples, 1)
+                ),
+                "maximum_action_delta_rms": contact_correction_rms_max,
+            },
             "duration_s": duration,
             "sim_steps_per_s": args.steps * args.num_envs / duration,
             "terminations": terminations,

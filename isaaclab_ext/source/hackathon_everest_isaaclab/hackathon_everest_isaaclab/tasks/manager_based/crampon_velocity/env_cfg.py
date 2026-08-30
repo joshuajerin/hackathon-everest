@@ -297,6 +297,12 @@ class EverestG1CramponStatefulEnvCfg(G1RoughEnvCfg):
     everest_play_contact_mode_id: str = ""
     everest_nominal_bootstrap_material: bool = False
     everest_enable_sensor_fault_curriculum: bool = False
+    # Reuse environment zero's sampled material across vector rows for a
+    # controlled side-by-side comparison.
+    everest_match_material_across_envs: bool = False
+    # Per-environment multiplier on tangential crampon grip. A low value is a
+    # bare-foot approximation for visual ablations; normal support is retained.
+    everest_crampon_grip_scale_by_env: tuple[float, ...] | None = None
     everest_virtual_travel_m: float = 0.055
     everest_tangential_velocity_gain_ns_per_m: float = 400.0
 

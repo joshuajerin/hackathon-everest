@@ -180,6 +180,24 @@ def test_each_foot_requires_at_least_one_enabled_probe() -> None:
         )
 
 
+def test_environment_grip_ablation_retains_normal_support_and_reduces_tangent() -> None:
+    model = BatchedCramponWrenchBridge(
+        BatchedStatefulMaterial(parameters(2)),
+        native_support_collisions_enabled=False,
+        tangential_grip_scale_by_env=(1.0, 0.05),
+    )
+    values = inputs(2)
+    values["ankle_linear_velocity_mps"][..., 0] = 0.5
+    values["tangential_demand_n"][:] = 800.0
+
+    result = model.step(**values, dt_s=0.005)
+
+    torch.testing.assert_close(result.probe_normal_force_n[0], result.probe_normal_force_n[1])
+    full_grip = result.probe_force_n[0, ..., 0].abs().sum()
+    low_grip = result.probe_force_n[1, ..., 0].abs().sum()
+    assert low_grip < 0.06 * full_grip
+
+
 def test_per_foot_load_is_distributed_over_only_active_probes() -> None:
     model = bridge(1)
     contact = torch.tensor([[[True, True, False, False], [True, False, False, False]]])

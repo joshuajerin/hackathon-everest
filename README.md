@@ -160,7 +160,8 @@ src/hackathon_everest/
   cli.py           command-line entry point
 ```
 
-See the [Isaac Lab implementation plan](ISAACLAB_MIGRATION_PLAN.md),
+See the [DeepSense technical pitch and evaluation playbook](docs/DEEPSENSE_TECHNICAL_PLAYBOOK.md),
+the [Isaac Lab implementation plan](ISAACLAB_MIGRATION_PLAN.md),
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
 [docs/ICE_SIM_TO_REAL.md](docs/ICE_SIM_TO_REAL.md),
 [docs/MUJOCO_SETUP.md](docs/MUJOCO_SETUP.md),

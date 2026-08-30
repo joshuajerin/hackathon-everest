@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0.0",
+  "jobs": [
+    {
+      "id": 1,
+      "surface": "polished_wind_ice",
+      "incline_deg": 25,
+      "camera": "uphill_hero_pair",
+      "camera_eye": [
+        5.8,
+        -6.8,
+        3.0
+      ],
+      "camera_lookat": [
+        0.8,
+        0,
+        1.0
+      ],
+      "scene_seed": 411,
+      "steps": 750,
+      "warmup_steps": 0,
+      "requested_vx": 0.12,
+      "lane_spacing": 2.4,
+      "baseline_grip_scale": 0.01
+    },
+    {
+      "id": 2,
+      "surface": "fractured_blue_ice",
+      "incline_deg": 30,
+      "camera": "uphill_side_pair",
+      "camera_eye": [
+        2.2,
+        -7.2,
+        2.4
+      ],
+      "camera_lookat": [
+        0.8,
+        0,
+        0.9
+      ],
+      "scene_seed": 412,
+      "steps": 750,
+      "warmup_steps": 0,
+      "requested_vx": 0.1,
+      "lane_spacing": 2.4,
+      "baseline_grip_scale": 0.01
+    }
+  ],
+  "claim_boundary": "Controlled same-simulator low-grip ablation. The no-crampon lane retains normal support but uses a 1% tangential-grip proxy; it is not a validated stock-foot model. Material parameters are project-authored simulator priors."
+}

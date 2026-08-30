@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -25,6 +26,7 @@ SURFACES = (
     "polished_wind_ice",
     "thin_snow_over_ice",
 )
+CONTACT_MODES = ("all_points_flat_foot", "hybrid_contact", "front_point_contact")
 SURFACE_DISPLAY_COLORS = {
     "hard_glacier_ice": (0.52, 0.75, 0.90),
     "fractured_blue_ice": (0.22, 0.50, 0.82),
@@ -53,11 +55,20 @@ parser.add_argument("--steps-per-surface", type=int, default=250)
 parser.add_argument("--surfaces", nargs="+", choices=SURFACES, default=list(SURFACES))
 parser.add_argument("--camera-eye", nargs=3, type=float, default=(2.4, 2.4, 1.4))
 parser.add_argument("--camera-lookat", nargs=3, type=float, default=(0.0, 0.0, 0.75))
+parser.add_argument("--incline-deg", type=float, default=0.0)
+parser.add_argument("--contact-mode", choices=CONTACT_MODES, default="all_points_flat_foot")
+parser.add_argument("--scene-seed", type=int, default=0)
+parser.add_argument("--requested-vx", type=float, default=0.15)
+parser.add_argument("--warmup-steps", type=int, default=100)
 add_launcher_args(parser)
 args, hydra_args = setup_preset_cli(parser)
 sys.argv = [sys.argv[0], *hydra_args]
 if args.steps_per_surface < 2:
     raise ValueError("steps-per-surface must be at least two")
+if not 0.0 < args.requested_vx <= 0.80:
+    raise ValueError("requested-vx must be in (0, 0.80]")
+if args.warmup_steps < 0:
+    raise ValueError("warmup-steps must be non-negative")
 args.enable_cameras = True
 _ISAAC_PROCESS_LOCK = acquire_isaac_process_lock()
 
@@ -66,23 +77,136 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def add_visual_ice_slab(surface_id: str) -> None:
-    """Add a visual-only primitive; analytical contact remains the authoritative plane."""
+def add_visual_ice_slab(surface_id: str, incline_deg: float, scene_seed: int) -> None:
+    """Build a visibly sloped, collision-free alpine hill around the robot.
+
+    The authored geometry rises in +X, matching ``suite_plane_normals``.  It is
+    presentation geometry only: no collision API is applied, so the stateful
+    analytical probe-wrench model remains the sole crampon contact authority.
+    """
+    import math
+
     import omni.usd
-    from pxr import Gf, Sdf, UsdGeom
+    from pxr import Gf, Sdf, Usd, UsdGeom
 
     stage = omni.usd.get_context().get_stage()
+    native_ground = stage.GetPrimAtPath("/World/ground")
+    if native_ground.IsValid():
+        # Explicit descendant visibility is needed by the headless renderer;
+        # visibility does not remove physics schemas or contact authority.
+        for prim in Usd.PrimRange(native_ground):
+            if prim.IsA(UsdGeom.Imageable):
+                UsdGeom.Imageable(prim).MakeInvisible()
     world = UsdGeom.Xform.Define(stage, "/World/CramponSensorLab")
     world.GetPrim().CreateAttribute("everest:visualOnly", Sdf.ValueTypeNames.Bool).Set(True)
-    cube = UsdGeom.Cube.Define(stage, "/World/CramponSensorLab/IceDisplaySlab")
-    cube.CreateSizeAttr(1.0)
-    cube.CreateDisplayColorAttr([Gf.Vec3f(*SURFACE_DISPLAY_COLORS[surface_id])])
-    cube.CreateDisplayOpacityAttr([0.94])
-    transform = UsdGeom.Xformable(cube)
-    transform.AddTranslateOp().Set(Gf.Vec3d(0.0, 0.0, -0.015))
-    transform.AddScaleOp().Set(Gf.Vec3f(9.0, 9.0, 0.04))
-    cube.GetPrim().CreateAttribute("everest:surfaceId", Sdf.ValueTypeNames.String).Set(surface_id)
-    cube.GetPrim().CreateAttribute("everest:visualOnly", Sdf.ValueTypeNames.Bool).Set(True)
+    color = Gf.Vec3f(*SURFACE_DISPLAY_COLORS[surface_id])
+    slope_radians = math.radians(incline_deg)
+
+    def sloped_box(
+        path: str,
+        center: tuple[float, float, float],
+        half_extents: tuple[float, float, float],
+        display_color: Gf.Vec3f,
+    ) -> UsdGeom.Cube:
+        cube = UsdGeom.Cube.Define(stage, path)
+        cube.CreateSizeAttr(2.0)
+        cube.CreateDisplayColorAttr([display_color])
+        transform = UsdGeom.Xformable(cube)
+        transform.AddTranslateOp().Set(Gf.Vec3d(*center))
+        # A negative Y rotation gives an upward normal (-sin(a), 0, cos(a)),
+        # which is the exact analytical convention for a plane rising in +X.
+        transform.AddRotateXYZOp().Set(Gf.Vec3f(0.0, -incline_deg, 0.0))
+        transform.AddScaleOp().Set(Gf.Vec3f(*half_extents))
+        cube.GetPrim().CreateAttribute("everest:visualOnly", Sdf.ValueTypeNames.Bool).Set(True)
+        return cube
+
+    # The top face passes through z=0 at the robot and extends far enough that
+    # close and medium cameras see a continuous hill rather than a flat disk.
+    slab_half_thickness = 0.08
+    sloped_box(
+        "/World/CramponSensorLab/IceHill",
+        (0.0, 0.0, -slab_half_thickness * math.cos(slope_radians)),
+        (24.0, 14.0, slab_half_thickness),
+        color,
+    )
+
+    # A broad visual-only approach covers the native support-plane grid on the
+    # downhill side.  It ends at x=0, where the commanded +X climb begins.
+    approach = UsdGeom.Cube.Define(stage, "/World/CramponSensorLab/SnowApproach")
+    approach.CreateSizeAttr(2.0)
+    approach.CreateDisplayColorAttr([Gf.Vec3f(0.86, 0.93, 0.98)])
+    approach_xform = UsdGeom.Xformable(approach)
+    approach_xform.AddTranslateOp().Set(Gf.Vec3d(-24.0, 0.0, -0.02))
+    approach_xform.AddScaleOp().Set(Gf.Vec3f(24.0, 30.0, 0.03))
+    approach.GetPrim().CreateAttribute("everest:visualOnly", Sdf.ValueTypeNames.Bool).Set(True)
+
+    # Raised side banks make the incline readable from front, side, and rear
+    # cameras while keeping the walking corridor visually open.
+    bank_color = Gf.Vec3f(0.88, 0.94, 0.99)
+    for side in (-1.0, 1.0):
+        sloped_box(
+            f"/World/CramponSensorLab/SnowBank_{'Left' if side > 0 else 'Right'}",
+            (0.0, side * 12.7, 0.42),
+            (24.0, 1.15, 0.50),
+            bank_color,
+        )
+
+    # Thin cross-slope bands expose the grade in every shot.  They follow the
+    # visual hill exactly and are spaced away from the robot's start point.
+    contour_color = Gf.Vec3f(0.76, 0.89, 0.98)
+    for index, x_position in enumerate((-16.0, -12.0, -8.0, -4.0, 4.0, 8.0, 12.0, 16.0)):
+        sloped_box(
+            f"/World/CramponSensorLab/SlopeBand_{index:02d}",
+            (x_position, 0.0, x_position * math.tan(slope_radians) + 0.025),
+            (0.07, 13.7, 0.018),
+            contour_color,
+        )
+
+    # A broad crest at the uphill end makes the scene read as a hill instead
+    # of an infinite mathematical plane.
+    crest_x = 21.5
+    sloped_box(
+        "/World/CramponSensorLab/SummitCrest",
+        (crest_x, 0.0, crest_x * math.tan(slope_radians) + 0.30),
+        (2.2, 14.0, 0.38),
+        bank_color,
+    )
+
+    sky = UsdGeom.Sphere.Define(stage, "/World/CramponSensorLab/SkyDome")
+    sky.CreateRadiusAttr(150.0)
+    sky.CreateDisplayColorAttr([Gf.Vec3f(0.32, 0.52, 0.78)])
+    sky.GetPrim().CreateAttribute("everest:visualOnly", Sdf.ValueTypeNames.Bool).Set(True)
+
+    # Distant deterministic mountains frame the slope without adding support
+    # collision near the robot.
+    for index in range(16):
+        angle = (2.0 * math.pi * index / 16.0) + 0.21 * (scene_seed % 7)
+        radius = 42.0 + 8.0 * ((index * 7 + scene_seed) % 4)
+        height = 12.0 + 6.0 * ((index * 5 + scene_seed) % 5)
+        width = 7.0 + 1.5 * ((index * 3 + scene_seed) % 4)
+        mountain = UsdGeom.Cone.Define(stage, f"/World/CramponSensorLab/Mountain_{index:02d}")
+        mountain.CreateRadiusAttr(width)
+        mountain.CreateHeightAttr(height)
+        shade = 0.56 + 0.07 * ((index + scene_seed) % 4)
+        mountain.CreateDisplayColorAttr([Gf.Vec3f(shade, min(0.97, shade + 0.1), 1.0)])
+        transform = UsdGeom.Xformable(mountain)
+        transform.AddTranslateOp().Set(
+            Gf.Vec3d(radius * math.cos(angle), radius * math.sin(angle), height / 2.0 - 0.04)
+        )
+        mountain.GetPrim().CreateAttribute("everest:visualOnly", Sdf.ValueTypeNames.Bool).Set(True)
+
+    # Low irregular foreground ridges add depth without obscuring the robot.
+    for index in range(6):
+        angle = (2.0 * math.pi * index / 6.0) + 0.43
+        ridge = UsdGeom.Cone.Define(stage, f"/World/CramponSensorLab/ForegroundRidge_{index:02d}")
+        ridge.CreateRadiusAttr(4.0 + index % 3)
+        ridge.CreateHeightAttr(2.0 + index % 2)
+        ridge.CreateDisplayColorAttr([Gf.Vec3f(0.75, 0.85, 0.93)])
+        transform = UsdGeom.Xformable(ridge)
+        transform.AddTranslateOp().Set(
+            Gf.Vec3d(28.0 * math.cos(angle), 28.0 * math.sin(angle), 1.0 - 0.04)
+        )
+        ridge.GetPrim().CreateAttribute("everest:visualOnly", Sdf.ValueTypeNames.Bool).Set(True)
 
 
 def packet_record(frame, step: int, sensor_tick: int) -> dict:
@@ -139,18 +263,38 @@ def main() -> int:
             env_cfg.everest_require_complete_coverage = False
             env_cfg.everest_nominal_bootstrap_material = False
             env_cfg.everest_play_surface_id = surface_id
-            env_cfg.everest_play_contact_mode_id = "all_points_flat_foot"
+            env_cfg.everest_play_contact_mode_id = args.contact_mode
+            env_cfg.everest_play_incline_deg = args.incline_deg
+            env_cfg.everest_use_case_inclines = True
             env_cfg.viewer.eye = tuple(args.camera_eye)
             env_cfg.viewer.lookat = tuple(args.camera_lookat)
             env_cfg.viewer.origin_type = "asset_root"
             env_cfg.viewer.env_index = 0
             env_cfg.viewer.asset_name = "robot"
             if hasattr(env_cfg.commands, "base_velocity"):
+                env_cfg.commands.base_velocity.ranges.lin_vel_x = (
+                    args.requested_vx,
+                    args.requested_vx,
+                )
+                env_cfg.commands.base_velocity.ranges.lin_vel_y = (0.0, 0.0)
+                env_cfg.commands.base_velocity.ranges.ang_vel_z = (0.0, 0.0)
+                env_cfg.commands.base_velocity.ranges.heading = (0.0, 0.0)
                 env_cfg.commands.base_velocity.debug_vis = False
             surface_dir = raw_dir / surface_id
             surface_dir.mkdir(parents=True, exist_ok=True)
             env = gym.make(args.task, cfg=env_cfg, render_mode="rgb_array")
-            add_visual_ice_slab(surface_id)
+            add_visual_ice_slab(surface_id, args.incline_deg, args.scene_seed)
+            observation, _ = env.reset()
+            # Establish a stable stock-policy gait before the recorder receives a frame.
+            # This intentionally excludes reset/transient footage from every final video.
+            with torch.inference_mode():
+                for _ in range(args.warmup_steps):
+                    observation, _, _, _, _ = env.step(policy(observation["policy"]))
+                    env.unwrapped.pop_everest_sensor_frames()
+            start_root_position = (
+                env.unwrapped.scene["robot"].data.root_pos_w[0].detach().cpu().clone()
+            )
+            terrain_normal = env.unwrapped._everest_terrain_normal[0].detach().cpu().clone()
             env = gym.wrappers.RecordVideo(
                 env,
                 video_folder=str(surface_dir),
@@ -159,7 +303,6 @@ def main() -> int:
                 name_prefix=surface_id,
                 disable_logger=True,
             )
-            observation, _ = env.reset()
             records: list[dict | None] = []
             all_sensor_packets: list[dict] = []
             terminations = 0
@@ -187,6 +330,13 @@ def main() -> int:
                     if bool(truncated.any()):
                         # The environment performs its own selective reset. Recording continues.
                         pass
+            end_root_position = (
+                env.unwrapped.scene["robot"].data.root_pos_w[0].detach().cpu().clone()
+            )
+            root_displacement = end_root_position - start_root_position
+            expected_climb_m = float(root_displacement[0]) * math.tan(
+                math.radians(args.incline_deg)
+            )
             env.close()
             videos = sorted(surface_dir.glob("*.mp4"))
             if len(videos) != 1:
@@ -199,7 +349,22 @@ def main() -> int:
                 "display_slab": "visual-only categorical primitive",
                 "video": {"path": str(video), "sha256": sha256(video)},
                 "steps": args.steps_per_surface,
+                "warmup_steps_excluded": args.warmup_steps,
+                "requested_vx_mps": args.requested_vx,
                 "terminations": terminations,
+                "incline_deg": args.incline_deg,
+                "contact_mode": args.contact_mode,
+                "travel_direction": "uphill_+X",
+                "terrain_normal_world": terrain_normal.tolist(),
+                "locomotion": {
+                    "start_root_position_world_m": start_root_position.tolist(),
+                    "end_root_position_world_m": end_root_position.tolist(),
+                    "root_displacement_world_m": root_displacement.tolist(),
+                    "forward_progress_m": float(root_displacement[0]),
+                    "vertical_climb_m": float(root_displacement[2]),
+                    "expected_climb_from_progress_m": expected_climb_m,
+                    "climb_tracking_error_m": float(root_displacement[2]) - expected_climb_m,
+                },
                 "video_alignment": (
                     "Each 50 Hz video/control frame displays the latest visible packet from that "
                     "control step. all_sensor_packets preserves every higher-rate sensor tick."

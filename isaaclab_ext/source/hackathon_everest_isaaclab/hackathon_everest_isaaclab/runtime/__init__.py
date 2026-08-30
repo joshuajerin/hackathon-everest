@@ -1,5 +1,10 @@
 """Simulator-neutral in-process Everest runtime bridge."""
 
+from .contact_correction import (
+    ContactGatedPolicyCorrection,
+    ContactGatedPolicyCorrectionConfig,
+    visible_crampon_contact,
+)
 from .controller import (
     COMMAND_DIM,
     ESTIMATOR_RATE_HZ,
@@ -20,6 +25,8 @@ __all__ = [
     "ESTIMATOR_RATE_HZ",
     "LOCOMOTION_ACTION_DIM",
     "CommandAdapter",
+    "ContactGatedPolicyCorrection",
+    "ContactGatedPolicyCorrectionConfig",
     "EverestController",
     "EverestControllerConfig",
     "EverestControllerOutput",
@@ -29,4 +36,5 @@ __all__ = [
     "SmoothPolicyBlend",
     "SmoothPolicyBlendConfig",
     "acquire_isaac_process_lock",
+    "visible_crampon_contact",
 ]
