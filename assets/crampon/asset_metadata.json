@@ -1,0 +1,106 @@
+{
+  "source_file": "Shoe_with_crampons_separated.stl",
+  "source_sha256": "07e4120e021883a42871019cdeaefe54f64126af8b99b7944f51d484b88e48bb",
+  "source_triangle_count": 85951,
+  "source_bounds_unitless": {
+    "minimum_m": [
+      -0.000469972932478413,
+      -0.0011166251497343183,
+      -0.0003560806217137724
+    ],
+    "maximum_m": [
+      0.0004574436170514673,
+      0.0015015932731330395,
+      0.0002477890520822257
+    ],
+    "extents_m": [
+      0.0009274165495298803,
+      0.0026182184228673577,
+      0.0006038696737959981
+    ]
+  },
+  "transform": {
+    "uniform_scale": 108.0,
+    "base_dimension_scale": 100.0,
+    "g1_cavity_fit_factor": 1.08,
+    "rotation": "source +Y -> G1 +X; source +X -> G1 -Y; +Z unchanged",
+    "x_offset_m": 0.0,
+    "z_reference": "source z=0 preserved; final visual lowest point is about -0.0385 m"
+  },
+  "combined_bounds_m": {
+    "minimum_m": [
+      -0.12059551617130637,
+      -0.04940391064155847,
+      -0.03845670714508742
+    ],
+    "maximum_m": [
+      0.16217207349836826,
+      0.0507570767076686,
+      0.026761217624880373
+    ],
+    "extents_m": [
+      0.28276758966967463,
+      0.10016098734922707,
+      0.0652179247699678
+    ]
+  },
+  "g1_fit_check": {
+    "method": "XY bounding boxes at the cavity z=10 mm base-scale section; visual-fit check only",
+    "official_left_ankle_roll_extents_xy_m": [
+      0.208207,
+      0.075583
+    ],
+    "scaled_cavity_section_extents_xy_m": [
+      0.2262384,
+      0.08182079999999999
+    ],
+    "estimated_clearance_per_side_xy_m": [
+      0.009015700000000001,
+      0.003118899999999994
+    ],
+    "caveat": "Bounding-box clearance is not a fabrication tolerance or a collision-free CAD proof."
+  },
+  "components": {
+    "crampon_frame": {
+      "source_component_id": 0,
+      "triangle_count": 68614,
+      "file": "crampon_frame.stl",
+      "minimum_m": [
+        -0.12059551617130637,
+        -0.04940391064155847,
+        -0.03845670714508742
+      ],
+      "maximum_m": [
+        0.16217207349836826,
+        0.0507570767076686,
+        0.00816049860441126
+      ],
+      "extents_m": [
+        0.28276758966967463,
+        0.10016098734922707,
+        0.04661720574949868
+      ]
+    },
+    "mount_plate": {
+      "source_component_id": 1,
+      "triangle_count": 17337,
+      "file": "mount_plate.stl",
+      "minimum_m": [
+        -0.09958406304940581,
+        -0.046579437679611146,
+        -0.00023911256539577153
+      ],
+      "maximum_m": [
+        0.1390864891000092,
+        0.04486388107761741,
+        0.026761217624880373
+      ],
+      "extents_m": [
+        0.23867055214941502,
+        0.09144331875722855,
+        0.027000330190276145
+      ]
+    }
+  },
+  "note": "STL has no units. Scale 100 gives plausible dimensions; a uniform 1.08 fit factor adds about 3 mm lateral clearance around the official G1 ankle-roll mesh."
+}

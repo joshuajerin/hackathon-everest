@@ -6,8 +6,10 @@ The core idea is not to classify a patch as “snow” or “ice.” The crampon
 vertical and lateral support each foot has left, shares that evidence through a local terrain map,
 and delays or redirects the next body-weight transfer when the bilateral support state is unsafe.
 
-> Current status: a runnable reduced-order synthetic pipeline for the hackathon. It is not autonomous
-> G1 locomotion, validated snow physics, tested hardware, or evidence that a robot is ready for Everest.
+> Current status: a runnable reduced-order estimator/control pipeline plus a sensorized single-foot MuJoCo
+> fixture and a compiled official G1 crampon attachment. The hybrid ice law uses literature-grounded broad
+> priors, not calibration from this spike. This is not autonomous G1 locomotion, validated ice/snow physics,
+> tested hardware, or evidence that a robot is ready for Everest.
 
 ## Why this is the hackathon scope
 
@@ -31,6 +33,23 @@ COMMIT / HOLD_DOUBLE_SUPPORT / REPLANT
 
 The terrain is continuous. Scenario names such as hard ice, firn, crust, or snow bridge are not model
 outputs and are not training labels.
+
+## Current MuJoCo fit
+
+The user-supplied crampon is uniformly scaled to `108`, attached inside both official G1 ankle-roll frames,
+and rendered visual-only over four named analytical probes per foot.
+
+![MuJoCo G1 crampon fit](docs/images/g1_crampon_closeup.png)
+
+## Isaac Lab asset authority
+
+Future Isaac Lab work uses the complete 26-object USD assembly in
+`assets/crampon/g1_crampon_components_source.usdc`, positioned through
+`blender/g1_crampon_components_fit.blend`. It must not use the older two-mesh fitted STL path.
+The old asset remains only for the existing MuJoCo compatibility workflow until that exporter is replaced.
+See `configs/isaaclab/g1_crampon_asset.yaml` for the machine-readable boundary.
+
+![Editable complete USD crampon assembly](blender/g1_crampon_components_fit_preview.png)
 
 ## Run it
 
@@ -61,6 +80,15 @@ uv run everest contract
 uv run everest generate --episodes 800 --fields 100 --out artifacts/probes.npz
 uv run everest train --dataset artifacts/probes.npz --model artifacts/model.joblib
 uv run everest replay --model artifacts/model.joblib --steps 6 --out artifacts/replay.json
+
+# Optional single-foot MuJoCo gates
+uv sync --extra mujoco --group dev
+uv run everest mujoco-probe --load 150 --duration 1.2 --out artifacts/mujoco_probe
+uv run everest mujoco-ice-probe --load 150 --duration 1.5 --out artifacts/mujoco_ice_probe
+
+# Build the derived pinned official G1 attachment
+uv run python scripts/fetch_g1_menagerie.py
+uv run python scripts/build_g1_crampon.py
 ```
 
 ## The exact sensor contract
@@ -118,7 +146,10 @@ The smoke replay begins on an explicitly known stable launch patch. Unknown terr
 ```text
 src/hackathon_everest/
   terrain.py       correlated fields + persistent compaction/fracture
-  physics.py       reduced-order per-spike contact truth
+  physics.py       reduced-order persistent snow/mixed-terrain truth
+  ice.py           stateful temperature/fracture/ploughing ice prior
+  mujoco_probe.py  hard-plane geometry and 19-channel fixture gate
+  hybrid_ice_probe.py  MuJoCo kinematics + external irreversible ice law
   sensors.py       noise, quantization, dropouts, 19-channel packets
   features.py      causal prefix-window features
   dataset.py       field-seed dataset generation and storage
@@ -129,9 +160,12 @@ src/hackathon_everest/
   cli.py           command-line entry point
 ```
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
-[docs/HACKATHON_SCOPE.md](docs/HACKATHON_SCOPE.md),
-[docs/COMPUTE.md](docs/COMPUTE.md), and the
+See the [Isaac Lab implementation plan](ISAACLAB_MIGRATION_PLAN.md),
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
+[docs/ICE_SIM_TO_REAL.md](docs/ICE_SIM_TO_REAL.md),
+[docs/MUJOCO_SETUP.md](docs/MUJOCO_SETUP.md),
+[docs/REAL_DATA.md](docs/REAL_DATA.md),
+[docs/HACKATHON_SCOPE.md](docs/HACKATHON_SCOPE.md), and the
 [submission kit](docs/SUBMISSION.md) for the design boundaries and demo flow.
 
 ## Safety and claim boundary

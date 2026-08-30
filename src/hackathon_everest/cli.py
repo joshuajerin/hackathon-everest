@@ -41,6 +41,25 @@ def build_parser() -> argparse.ArgumentParser:
     replay.add_argument("--mode", choices=["full", "current_only"], default="full")
     replay.add_argument("--out", default="artifacts/replay.json")
 
+    probe = commands.add_parser("mujoco-probe", help="run the single-foot MuJoCo sensor fixture")
+    probe.add_argument("--model", default="mujoco/crampon_probe.xml")
+    probe.add_argument("--duration", type=float, default=1.0)
+    probe.add_argument("--ramp", type=float, default=0.30)
+    probe.add_argument("--load", type=float, default=150.0)
+    probe.add_argument("--slope-deg", type=float, default=0.0)
+    probe.add_argument("--lateral-drive-force", type=float, default=0.0)
+    probe.add_argument("--out", default="artifacts/mujoco_probe")
+
+    ice_probe = commands.add_parser("mujoco-ice-probe", help="run the hybrid stateful ice probe")
+    ice_probe.add_argument("--model", default="mujoco/crampon_probe.xml")
+    ice_probe.add_argument("--duration", type=float, default=1.5)
+    ice_probe.add_argument("--ramp", type=float, default=0.40)
+    ice_probe.add_argument("--load", type=float, default=150.0)
+    ice_probe.add_argument("--slope-deg", type=float, default=0.0)
+    ice_probe.add_argument("--lateral-drive-force", type=float, default=0.0)
+    ice_probe.add_argument("--seed", type=int, default=41)
+    ice_probe.add_argument("--out", default="artifacts/mujoco_ice_probe")
+
     commands.add_parser("contract", help="print the hardware-shaped crampon channel contract")
     return parser
 
@@ -77,6 +96,33 @@ def main(argv: list[str] | None = None) -> int:
         )
         write_json(Path(args.out), replay)
         print(json.dumps(replay["summary"], indent=2))
+    elif args.command == "mujoco-probe":
+        from .mujoco_probe import run_mujoco_probe, save_mujoco_probe
+
+        run = run_mujoco_probe(
+            args.model,
+            duration_s=args.duration,
+            ramp_s=args.ramp,
+            target_load_n=args.load,
+            slope_deg=args.slope_deg,
+            lateral_drive_force_n=args.lateral_drive_force,
+        )
+        report = save_mujoco_probe(run, args.out)
+        print(json.dumps(report, indent=2))
+    elif args.command == "mujoco-ice-probe":
+        from .hybrid_ice_probe import run_hybrid_ice_probe, save_hybrid_ice_probe
+
+        run = run_hybrid_ice_probe(
+            args.model,
+            duration_s=args.duration,
+            ramp_s=args.ramp,
+            target_load_n=args.load,
+            seed=args.seed,
+            slope_deg=args.slope_deg,
+            lateral_drive_force_n=args.lateral_drive_force,
+        )
+        report = save_hybrid_ice_probe(run, args.out)
+        print(json.dumps(report, indent=2))
     elif args.command == "contract":
         print(
             json.dumps(

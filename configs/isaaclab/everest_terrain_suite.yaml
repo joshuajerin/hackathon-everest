@@ -1,0 +1,140 @@
+schema_version: 1.0.0
+name: everest_route_surface_hazard_suite
+claim_boundary: >-
+  An Everest-inspired stress-test suite. Route names, configured depths, slopes, hazards,
+  and material parameters are project-authored test conditions, not surveyed Mount Everest
+  measurements, a digital twin, or validated hardware safety data.
+
+vectorization:
+  default_num_envs: 4096
+  grid_rows: 64
+  grid_cols: 64
+  cell_spacing_m: 16.0
+  patch_size_m: [12.0, 12.0]
+  out_of_bounds_radius_m: 5.5
+  filter_cross_environment_collisions: true
+  replicate_physics: true
+  training_cameras_per_env: 0
+
+inclines_deg: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45]
+
+surfaces:
+  - id: base_camp_patchy_snow
+    family: snow
+    route_context: Base Camp and lower-glacier visual proxy
+    configured_depth_m: 0.05
+    visual_asset: polyhaven/snow_floor
+    physics_model: stateful_snow
+  - id: western_cwm_consolidated_snow
+    family: snow
+    route_context: Western Cwm aged consolidated snow visual proxy
+    configured_depth_m: 0.12
+    visual_asset: polyhaven/snow_02
+    physics_model: stateful_snow
+  - id: lhotse_boot_packed_snow
+    family: snow
+    route_context: Lhotse approach boot-packed trail visual proxy
+    configured_depth_m: 0.20
+    visual_asset: polyhaven/snow_01
+    physics_model: stateful_snow
+  - id: south_col_wind_pack
+    family: snow
+    route_context: South Col wind-packed firn visual proxy
+    configured_depth_m: 0.30
+    visual_asset: polyhaven/snow_03
+    physics_model: stateful_snow
+  - id: summit_ridge_drift
+    family: snow
+    route_context: Summit ridge fresh-drift visual proxy
+    configured_depth_m: 0.50
+    visual_asset: polyhaven/snow_field_aerial
+    physics_model: stateful_snow
+  - id: hard_glacier_ice
+    family: ice
+    route_context: Hard glacier ice visual proxy
+    configured_depth_m: 0.30
+    visual_asset: ambientcg/Ice001
+    physics_model: stateful_ice
+  - id: fractured_blue_ice
+    family: ice
+    route_context: Fractured blue-ice visual proxy
+    configured_depth_m: 0.30
+    visual_asset: ambientcg/Ice002
+    physics_model: stateful_ice
+  - id: polished_wind_ice
+    family: ice
+    route_context: Wind-polished ice visual proxy
+    configured_depth_m: 0.20
+    visual_asset: ambientcg/Ice003
+    physics_model: stateful_ice
+  - id: thin_snow_over_ice
+    family: layered
+    route_context: Thin snow crust over hard ice visual proxy
+    configured_depth_m: 0.04
+    visual_asset: ambientcg/Ice004+polyhaven/snow_02
+    physics_model: stateful_layered_snow_ice
+
+hazards:
+  - id: none
+    geometry: intact
+    visible: true
+  - id: buried_shallow_void
+    geometry: subsurface_void
+    visible: false
+    void_top_depth_m: [0.03, 0.12]
+    void_height_m: [0.05, 0.25]
+  - id: buried_deep_void
+    geometry: subsurface_void
+    visible: false
+    void_top_depth_m: [0.12, 0.35]
+    void_height_m: [0.20, 0.80]
+  - id: thin_snow_bridge
+    geometry: bridge_over_gap
+    visible: partially
+    bridge_thickness_m: [0.02, 0.12]
+    gap_width_m: [0.15, 0.80]
+  - id: open_crevasse_gap
+    geometry: open_gap
+    visible: true
+    gap_width_m: [0.20, 1.20]
+    termination_on_entry: true
+  - id: edge_collapse
+    geometry: breakable_edge
+    visible: partially
+    unsupported_width_m: [0.08, 0.50]
+  - id: exposed_ice_patch
+    geometry: material_transition
+    visible: true
+    patch_radius_m: [0.10, 0.80]
+  - id: damaged_previous_footprint
+    geometry: persistent_crater
+    visible: partially
+    repeated_contact_count: [1, 8]
+
+contact_modes:
+  - id: all_points_flat_foot
+    status: candidate_requires_empirical_validation
+  - id: hybrid_contact
+    status: candidate_requires_empirical_validation
+  - id: front_point_contact
+    status: candidate_requires_empirical_validation
+
+sensor_fault_modes:
+  - nominal
+  - one_force_stale
+  - one_probe_saturated
+  - imu_bias_burst
+  - radar_interface_merge
+  - packet_latency_burst
+
+assignment:
+  strategy: stratified_cartesian_then_replicated_randomized
+  required_axes: [surface, incline_deg, hazard, contact_mode]
+  natural_prior_metrics_separate_from_stress_tail: true
+  group_descendants_by_world_and_spatial_block: true
+
+validation:
+  require_every_surface_at_every_incline: true
+  require_every_hazard_for_each_surface_family: true
+  labels: [stable, partial_grip, slip, no_contact, fall, abort]
+  recommended_statuses: [unknown, not_ideal, recommended]

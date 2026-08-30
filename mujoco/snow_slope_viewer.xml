@@ -1,0 +1,53 @@
+<mujoco model="hackathon_everest_snow_slope_viewer">
+  <compiler angle="degree" meshdir="../assets/crampon" autolimits="true"/>
+  <option timestep="0.00025" gravity="0 0 -9.81"/>
+  <visual>
+    <headlight diffuse="0.75 0.82 0.92" ambient="0.28 0.30 0.38" specular="0.25 0.25 0.25"/>
+    <rgba haze="0.72 0.83 0.94 1"/>
+    <global offwidth="1280" offheight="720"/>
+  </visual>
+  <default>
+    <geom friction="0.04 0.003 0.0001"/>
+  </default>
+  <asset>
+    <material name="snow" rgba="0.90 0.96 1.00 1" specular="0.10" shininess="0.15"/>
+    <material name="ice" rgba="0.48 0.74 0.91 1" specular="0.65" shininess="0.75"/>
+    <material name="crampon_metal" rgba="0.13 0.20 0.27 1" metallic="0.8" roughness="0.25"/>
+    <texture name="sky" type="skybox" builtin="gradient" rgb1="0.20 0.38 0.60" rgb2="0.80 0.90 1.0" width="512" height="3072"/>
+    <mesh name="crampon_frame_mesh" file="crampon_frame.stl"/>
+    <mesh name="mount_plate_mesh" file="mount_plate.stl"/>
+  </asset>
+  <worldbody>
+    <light name="sun" directional="true" pos="-1 -1 2" dir="0.35 0.25 -1" diffuse="1 0.95 0.85"/>
+    <light name="fill" pos="0 -1 1.2" diffuse="0.35 0.45 0.62"/>
+    <camera name="overview" pos="1.15 -1.35 0.78" xyaxes="0.76 0.65 0 -0.26 0.30 0.92"/>
+    <camera name="uphill" pos="-0.75 -1.20 0.46" xyaxes="0.84 -0.52 0.15 0.18 0.54 0.82"/>
+
+    <!-- 12 degree snow slope, with a translucent hard-ice patch. Visual/demo only. -->
+    <geom name="snow_slope" type="box" pos="0 0 -0.075" size="1.25 1.00 0.075"
+          euler="0 12 0" material="snow"/>
+    <geom name="ice_patch" type="box" pos="0.28 0.02 0.010" size="0.32 0.48 0.003"
+          euler="0 12 0" material="ice" rgba="0.48 0.74 0.91 0.72"/>
+    <geom name="snow_drift_a" type="ellipsoid" pos="-0.48 0.38 0.045" size="0.34 0.22 0.09"
+          euler="0 12 0" material="snow"/>
+    <geom name="snow_drift_b" type="ellipsoid" pos="0.62 -0.34 0.06" size="0.30 0.18 0.10"
+          euler="0 12 0" material="snow"/>
+    <geom name="rock_outcrop" type="ellipsoid" pos="-0.68 -0.52 -0.005" size="0.16 0.12 0.08"
+          rgba="0.25 0.29 0.33 1"/>
+
+    <body name="crampon_display" pos="-0.08 0 0.145" euler="0 12 0">
+      <geom name="crampon_frame" type="mesh" mesh="crampon_frame_mesh" material="crampon_metal"
+            contype="0" conaffinity="0"/>
+      <geom name="mount_plate" type="mesh" mesh="mount_plate_mesh" material="crampon_metal"
+            contype="0" conaffinity="0"/>
+      <geom name="spike_front_left" type="capsule" fromto="0.075 0.045 -0.005 0.075 0.045 -0.040"
+            size="0.0035" rgba="0.78 0.30 0.16 1"/>
+      <geom name="spike_front_right" type="capsule" fromto="0.075 -0.045 -0.005 0.075 -0.045 -0.040"
+            size="0.0035" rgba="0.78 0.30 0.16 1"/>
+      <geom name="spike_rear_left" type="capsule" fromto="-0.075 0.045 -0.005 -0.075 0.045 -0.040"
+            size="0.0035" rgba="0.78 0.30 0.16 1"/>
+      <geom name="spike_rear_right" type="capsule" fromto="-0.075 -0.045 -0.005 -0.075 -0.045 -0.040"
+            size="0.0035" rgba="0.78 0.30 0.16 1"/>
+    </body>
+  </worldbody>
+</mujoco>

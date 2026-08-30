@@ -7,7 +7,7 @@ import numpy as np
 from .terrain import TerrainField, TerrainPoint
 
 SPIKE_OFFSETS_M = np.array(
-    [[0.075, 0.045], [0.075, -0.045], [-0.075, 0.045], [-0.075, -0.045]], dtype=float
+    [[0.081, 0.0486], [0.081, -0.0486], [-0.081, 0.0486], [-0.081, -0.0486]], dtype=float
 )
 
 

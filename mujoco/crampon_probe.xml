@@ -1,0 +1,74 @@
+<mujoco model="hackathon_everest_crampon_probe">
+  <compiler angle="radian" meshdir="../assets/crampon" autolimits="true" />
+  <option timestep="0.00025" integrator="implicitfast" gravity="0 0 -9.81" iterations="80" />
+  <default>
+    <joint damping="2" armature="0.0001" />
+    <geom condim="4" friction="0.04 0.004 0.0001" solref="0.01 1" solimp="0.99 0.99 0.001" />
+    <site rgba="1 0 0 0.35" />
+    <default class="probe">
+      <joint type="slide" axis="0 0 1" range="0 0.020" springref="0" stiffness="8000" damping="120" />
+      <geom type="capsule" size="0.003" density="7800" condim="1" rgba="0.12 0.14 0.16 1" />
+      <site type="sphere" size="0.004" rgba="0 0 0 0" />
+    </default>
+  </default>
+  <asset>
+    <material name="crampon_metal" rgba="0.16 0.24 0.32 1" metallic="0.8" roughness="0.28" />
+    <material name="mount_plate" rgba="0.12 0.12 0.13 1" metallic="0.25" roughness="0.5" />
+    <material name="ice" rgba="0.62 0.84 0.96 0.78" roughness="0.12" />
+    <mesh name="crampon_frame_mesh" file="crampon_frame_fitted.stl" />
+    <mesh name="mount_plate_mesh" file="mount_plate_fitted.stl" />
+  </asset>
+  <worldbody>
+    <light pos="0 -1 1.2" dir="0 1 -1" diffuse="0.9 0.9 0.9" />
+    <camera name="probe_camera" pos="0.42 -0.52 0.30" xyaxes="0.78 0.62 0 -0.25 0.31 0.92" />
+    <geom name="ice_plane" type="plane" size="1 1 0.02" material="ice" friction="0.035 0.003 0.0001" condim="1" />
+    <body name="probe_carriage" pos="0 0 0.07870640798">
+      <inertial pos="0 0 0" mass="2.0" diaginertia="0.01 0.01 0.01" />
+      <joint name="carriage_x" type="slide" axis="1 0 0" range="-0.120 0.120" damping="8" />
+      <joint name="carriage_z" type="slide" axis="0 0 1" range="-0.030 0.010" damping="400" />
+      <geom name="crampon_frame_visual" type="mesh" mesh="crampon_frame_mesh" material="crampon_metal" contype="0" conaffinity="0" density="0" group="2" />
+      <geom name="mount_plate_visual" type="mesh" mesh="mount_plate_mesh" material="mount_plate" contype="0" conaffinity="0" density="0" group="2" />
+      <site name="crampon_imu" pos="0.0312280152 0.0002197697759 -0.02080976963" size="0.006" rgba="0.1 1 0.1 1" />
+      <site name="radar_origin" pos="0.07982801646 0.0002197697759 -0.04672976956" size="0.007" rgba="0.8 0.1 1 1" />
+      <body name="probe_0" pos="0.1014280245 0.0488197729 -0.04564976692" quat="1 0 0 0">
+        <joint class="probe" name="probe_0_slide" />
+        <geom class="probe" name="probe_0_geom" fromto="0 0 0 0 0 -0.02981664096" size="0.003240000104" />
+        <site class="probe" name="probe_0_tip" pos="0 0 -0.02981664096" size="0.00405000013" />
+      </body>
+      <body name="probe_1" pos="0.1014280245 -0.04838023335 -0.04564976692" quat="1 0 0 0">
+        <joint class="probe" name="probe_1_slide" />
+        <geom class="probe" name="probe_1_geom" fromto="0 0 0 0 0 -0.02981664096" size="0.003240000104" />
+        <site class="probe" name="probe_1_tip" pos="0 0 -0.02981664096" size="0.00405000013" />
+      </body>
+      <body name="probe_2" pos="-0.06057199091 0.0488197729 -0.04564976692" quat="1 0 0 0">
+        <joint class="probe" name="probe_2_slide" />
+        <geom class="probe" name="probe_2_geom" fromto="0 0 0 0 0 -0.02981664096" size="0.003240000104" />
+        <site class="probe" name="probe_2_tip" pos="0 0 -0.02981664096" size="0.00405000013" />
+      </body>
+      <body name="probe_3" pos="-0.06057199091 -0.04838023335 -0.04564976692" quat="1 0 0 0">
+        <joint class="probe" name="probe_3_slide" />
+        <geom class="probe" name="probe_3_geom" fromto="0 0 0 0 0 -0.02981664096" size="0.003240000104" />
+        <site class="probe" name="probe_3_tip" pos="0 0 -0.02981664096" size="0.00405000013" />
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="carriage_load" joint="carriage_z" gear="1" ctrlrange="-1200 1200" forcerange="-1200 1200" />
+  </actuator>
+  <sensor>
+    <touch name="spike_0_axial_force" site="probe_0_tip" />
+    <touch name="spike_1_axial_force" site="probe_1_tip" />
+    <touch name="spike_2_axial_force" site="probe_2_tip" />
+    <touch name="spike_3_axial_force" site="probe_3_tip" />
+    <jointpos name="spike_0_penetration" joint="probe_0_slide" />
+    <jointpos name="spike_1_penetration" joint="probe_1_slide" />
+    <jointpos name="spike_2_penetration" joint="probe_2_slide" />
+    <jointpos name="spike_3_penetration" joint="probe_3_slide" />
+    <accelerometer name="crampon_accelerometer" site="crampon_imu" />
+    <gyro name="crampon_gyroscope" site="crampon_imu" />
+    <user name="radar_frontend" dim="5" needstage="vel" />
+  </sensor>
+  <keyframe>
+    <key name="touchdown" qpos="0 0 0 0 0 0" ctrl="0" />
+  </keyframe>
+</mujoco>

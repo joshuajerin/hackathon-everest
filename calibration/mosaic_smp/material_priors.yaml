@@ -1,0 +1,22 @@
+schema_version: 1
+source_doi: https://doi.org/10.1594/PANGAEA.935554
+evidence_level: weak_material_prior_not_crampon_ground_truth
+snow:
+  density_kg_per_m3:
+  - 131.5869726385055
+  - 532.1885675761002
+  single_probe_resistance_n:
+  - 0.07766435042023659
+  - 14.11918948115405
+  positive_stiffness_n_per_m:
+  - 687.613667904893
+  - 8938.977682763607
+  probe_speed_mps: 0.02
+required_randomization:
+- temperature
+- density_and_microstructure
+- crust_and_layer_depth
+- tip_geometry
+- approach_speed
+- force_depth_scale
+- hysteresis_and_repeated_footfall

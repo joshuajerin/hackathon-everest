@@ -1,0 +1,140 @@
+{
+  "source": {
+    "dataset": "MOSAiC Snowpit SnowMicroPen force profiles",
+    "doi": "https://doi.org/10.1594/PANGAEA.935554",
+    "license": "CC BY 4.0",
+    "citation": "Macfarlane, A. R. et al. (2021), Snowpit SnowMicroPen (SMP) force profiles collected during the MOSAiC expedition, PANGAEA, doi:10.1594/PANGAEA.935554.",
+    "downloaded_profiles": 5,
+    "usable_profiles": 5,
+    "download_failures": 19,
+    "parse_failures": []
+  },
+  "observed_smp": {
+    "tip_diameter_mm": 5.0,
+    "measurement_speed_mm_per_s": 20.0,
+    "force_quantiles_n": {
+      "p05": 0.05393357668071985,
+      "p25": 0.11444441881030798,
+      "p50": 0.9576498493552208,
+      "p75": 3.351774472743273,
+      "p90": 6.8706114878878,
+      "p95": 9.804992695245868,
+      "p99": 17.925632469118575
+    },
+    "positive_smoothed_gradient_quantiles_n_per_m": {
+      "p50": 477.5094916006201,
+      "p75": 1432.5284748018603,
+      "p90": 3594.7027625687306,
+      "p95": 6207.623390808061
+    },
+    "P2015_density_quantiles_kg_per_m3": {
+      "p05": 131.5869726385055,
+      "p25": 229.31452959622362,
+      "p50": 296.82050653872517,
+      "p75": 380.8172653009993,
+      "p95": 532.1885675761002
+    },
+    "snow_depth_quantiles_mm": {
+      "p05": 67.13139849072323,
+      "p50": 255.20659651607275,
+      "p95": 282.0123831066303
+    }
+  },
+  "engineering_translation": {
+    "crampon_probe_tip_diameter_mm": 6.0,
+    "projected_area_ratio_vs_smp": 1.44,
+    "area_scaled_force_quantiles_n": {
+      "p05": 0.07766435042023659,
+      "p25": 0.1647999630868435,
+      "p50": 1.379015783071518,
+      "p75": 4.826555240750313,
+      "p90": 9.893680542558432,
+      "p95": 14.11918948115405,
+      "p99": 25.812910755530748
+    },
+    "use": "Prior/noise calibration and domain randomization only, not synchronized traction labels.",
+    "caveat": "Area scaling is an explicit weak assumption. Crampon angle, speed, compaction zone, shear, and fracture differ from the 5 mm SMP cone."
+  },
+  "profiles": [
+    {
+      "filename": "S31H0671.pnt",
+      "timestamp": "2020-05-02 12:13:13+00:00",
+      "surface_mm": 52.0,
+      "ground_mm": 340.6694072103128,
+      "snow_depth_mm": 288.6694072103128,
+      "sample_count": 69857,
+      "force_quantiles_n": {
+        "p50": 0.5327585013583302,
+        "p75": 3.6740604797378182,
+        "p90": 6.7456434443593025,
+        "p95": 7.848256224207576,
+        "p99": 9.013484571129084
+      },
+      "penetration_work_j": 0.5744901258140902
+    },
+    {
+      "filename": "S31H0921.pnt",
+      "timestamp": "2020-05-12 12:24:59+00:00",
+      "surface_mm": 104.0,
+      "ground_mm": 359.20659651607275,
+      "snow_depth_mm": 255.20659651607275,
+      "sample_count": 61759,
+      "force_quantiles_n": {
+        "p50": 1.490408350713551,
+        "p75": 3.018964841030538,
+        "p90": 7.883773457631475,
+        "p95": 11.977331927698105,
+        "p99": 24.910103743560597
+      },
+      "penetration_work_j": 0.7574320682673112
+    },
+    {
+      "filename": "S31H1675.pnt",
+      "timestamp": "2020-09-05 05:07:34+00:00",
+      "surface_mm": 85.0,
+      "ground_mm": 137.6694157179445,
+      "snow_depth_mm": 52.6694157179445,
+      "sample_count": 12745,
+      "force_quantiles_n": {
+        "p50": 4.252859839238226,
+        "p75": 9.794863706454635,
+        "p90": 14.631784717552364,
+        "p95": 16.31477540060877,
+        "p99": 22.95355143595486
+      },
+      "penetration_work_j": 0.2981179875277602
+    },
+    {
+      "filename": "S49M0434.pnt",
+      "timestamp": "2019-12-02 08:01:15+00:00",
+      "surface_mm": 96.0,
+      "ground_mm": 220.9793295818381,
+      "snow_depth_mm": 124.9793295818381,
+      "sample_count": 30244,
+      "force_quantiles_n": {
+        "p50": 0.9493147769244388,
+        "p75": 3.0559023331152275,
+        "p90": 12.396592579863503,
+        "p95": 15.696575490402754,
+        "p99": 19.488027978554594
+      },
+      "penetration_work_j": 0.39849475664845424
+    },
+    {
+      "filename": "S49M1351.pnt",
+      "timestamp": "2020-01-31 11:23:38+00:00",
+      "surface_mm": 3.0,
+      "ground_mm": 258.38428669190034,
+      "snow_depth_mm": 255.38428669190034,
+      "sample_count": 61802,
+      "force_quantiles_n": {
+        "p50": 0.7184003717266023,
+        "p75": 3.103165515465662,
+        "p90": 3.866128316265531,
+        "p95": 4.165911930031143,
+        "p99": 4.946429627132602
+      },
+      "penetration_work_j": 0.3796246696226482
+    }
+  ]
+}

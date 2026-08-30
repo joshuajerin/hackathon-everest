@@ -1,0 +1,35 @@
+schema_version: 1.0.0
+status: authoritative_for_isaac_lab
+
+source:
+  usdc: assets/crampon/g1_crampon_components_source.usdc
+  sha256: 53703057dff7ea5b2e7e468164289d6c0aba629400952c9a8a9a5f7048f2a660
+  stage_up_axis: Z
+  meters_per_unit: 1.0
+  default_prim: /root
+  mesh_objects: 26
+
+editable_fit:
+  blend: blender/g1_crampon_components_fit.blend
+  generator: blender/setup_usd_component_fit.py
+  metadata: assets/crampon/usd_component_fit_metadata.json
+  shared_control: USD_ASSET_POSITION_CONTROL
+  per_foot_controls:
+    left: LEFT_USD_FINE_TUNE
+    right: RIGHT_USD_FINE_TUNE
+
+isaac_lab:
+  use_this_asset: true
+  compose_with_official_g1_usd: true
+  preserve_component_relative_transforms: true
+  visual_geometry: all_usd_meshes
+  collision_geometry: analytical_crampon_proxies_only
+  estimator_packet_contract: 19_values_per_foot
+
+legacy:
+  use_old_two_mesh_fit_for_isaac_lab: false
+  old_blend: blender/g1_crampon_fit.blend
+  old_assets:
+    - assets/crampon/crampon_frame_fitted.stl
+    - assets/crampon/mount_plate_fitted.stl
+  retained_for: existing_mujoco_compatibility_only

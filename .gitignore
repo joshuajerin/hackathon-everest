@@ -9,3 +9,6 @@ artifacts/
 *.npz
 dist/
 build/
+data/external/
+vendor/
+.gstack/
