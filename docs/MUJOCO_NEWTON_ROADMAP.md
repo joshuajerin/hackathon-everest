@@ -1,7 +1,8 @@
 # MuJoCo and Newton roadmap
 
-The current repository intentionally does not claim MuJoCo or G1 results. There is no verified G1 asset or
-whole-body controller in this v0.
+The repository now includes single-foot MuJoCo fixtures, a pinned MuJoCo Menagerie G1-derived attachment
+workflow, and a native Isaac Lab implementation. It still does not claim validated whole-body MuJoCo walking,
+natural snow/ice accuracy, physical calibration, Newton MPM replay, or hardware safety.
 
 ## Phase 1 — hybrid MuJoCo adapter
 

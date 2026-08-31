@@ -6,12 +6,17 @@ This document is the implementation authority for moving Hackathon Everest into 
 
 Current state:
 
-- The complete USD crampon assembly and its Blender fit are ready.
-- The existing reduced-order dataset, estimator, terrain map, and bilateral decision system are ready.
-- The standalone MuJoCo geometry and hybrid ice fixtures are ready.
-- No Isaac Lab environment has been implemented or trained in this repository yet.
-- No generic G1 checkpoint has been run with the crampon asset yet.
-- No claim of real G1 balance, walking, snow/ice accuracy, or hardware safety is made.
+- The complete USD crampon assembly, Blender fit, and reproducible composition scripts are implemented.
+- The reduced-order dataset, estimator, terrain map, and bilateral decision system are runnable on CPU.
+- The standalone MuJoCo geometry and hybrid ice fixtures are implemented.
+- An external Isaac Lab extension now registers stateful G1/crampon tasks, visible sensor packets, contact
+  mechanics, estimator/supervisor runtime, safety shield, training/evaluation scripts, and render queues.
+- Native Isaac recordings were produced on the pinned Linux/A100 stack in `isaaclab_ext/stack.lock.json` and
+  a small reviewed media bundle is published under `docs/media/`.
+- A clean checkout still requires external official G1 assets and compatible stock/residual/visible policy
+  artifacts to reproduce full native runs. Default CI does not run Isaac Sim.
+- No claim of calibrated natural snow/ice, physical crampon effectiveness, exact replant execution, real G1
+  balance, mountain readiness, or hardware safety is made.
 
 ## Locked decisions
 

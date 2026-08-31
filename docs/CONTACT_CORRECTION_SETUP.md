@@ -45,3 +45,32 @@ The setup script exports and validates `policy/policy.pt`, writes hash manifests
 and generates `run_active_contact_correction.sh`. Review and run that launcher.
 The correction is active only after fresh visible axial-force and penetration packets
 show contact, and only while the shield permits `COMMIT`.
+
+
+## Sensor-driven joint-target residual path
+
+`runtime.SensorGatedJointResidual` is the direct joint-target adapter for a
+separately trained sensor policy. That policy must take the visible estimator
+latent and emit one raw residual per named joint. The default ABI is nine
+lower-body targets: bilateral hip pitch, knee, ankle pitch, ankle roll, and
+torso.
+
+It applies each policy output as a bounded physical correction in radians:
+
+```text
+q_target = clamp(q_stock + limit * tanh(raw_residual), joint_limits)
+```
+
+The correction is rate-limited to `0.015 rad` per control tick by default and
+is removed immediately whenever its `enabled` gate is false. The adapter then
+converts the physical target back through the exact deployed `joint_pos` action
+transform. Its caller must supply that action term's named joint order, scales,
+offsets, and position limits. The adapter resolves and validates configured joint names internally; it must
+never guess a G1 action map or trust anonymous joint indices.
+
+This repository does not yet contain a trained/exported sensor-to-joint
+residual checkpoint or an Isaac runner flag for it. It is deliberately not
+connected to the existing `--contact-correction-policy`, whose ABI is a
+stock-observation-only 37-action specialist. Train and validate the new
+sensor-conditioned policy first, then wire it to this adapter using the exact
+pinned Isaac Lab action metadata.

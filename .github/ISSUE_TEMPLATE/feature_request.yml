@@ -1,0 +1,26 @@
+name: Feature request
+description: Propose a scoped improvement to the DeepSense stack
+title: "[feature] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What capability, evidence gap, or user-visible problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Identify the layer, contracts, files, and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation plan
+      description: State tests, metrics, paired baselines, and claim boundaries.
+    validations:
+      required: true

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import importlib.util
+import importlib
 from pathlib import Path
 
 import numpy as np
@@ -9,9 +9,13 @@ import pytest
 from hackathon_everest.hybrid_ice_probe import run_hybrid_ice_probe
 from hackathon_everest.models import SENSOR_CHANNELS
 
-pytestmark = pytest.mark.skipif(
-    importlib.util.find_spec("mujoco") is None, reason="MuJoCo extra not installed"
-)
+try:
+    _mujoco = importlib.import_module("mujoco")
+    _HAS_MUJOCO = hasattr(_mujoco, "MjModel")
+except ImportError:
+    _HAS_MUJOCO = False
+
+pytestmark = pytest.mark.skipif(not _HAS_MUJOCO, reason="MuJoCo extra not installed")
 
 
 def test_hybrid_ice_probe_keeps_material_truth_outside_packet() -> None:

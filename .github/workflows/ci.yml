@@ -5,19 +5,65 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  core:
+    name: core · ${{ matrix.os }} · py${{ matrix.python }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        python: ["3.12", "3.13"]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.12"
+          version: "0.11.8"
+          python-version: ${{ matrix.python }}
           enable-cache: true
       - run: uv sync --group dev --locked
+      - run: uv lock --check
       - run: uv run ruff check .
       - run: uv run pytest -q
       - run: uv run everest pipeline --config configs/smoke.yaml --out artifacts/ci-smoke
+      - run: git diff --check
+
+  mujoco:
+    name: optional MuJoCo fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.8"
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --extra mujoco --group dev --locked
+      - run: uv run pytest -q tests/test_mujoco_probe.py tests/test_hybrid_ice_probe.py
+
+  isaac-neutral:
+    name: Isaac-neutral extension tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.8"
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv sync --group dev --locked
+      - name: Install pinned CPU Torch and extension data dependencies
+        run: |
+          uv pip install --python .venv/bin/python torch==2.10.0 --index-url https://download.pytorch.org/whl/cpu
+          uv pip install --python .venv/bin/python pyarrow==21.0.0 zarr==3.1.5
+      - run: .venv/bin/python -m pytest -q isaaclab_ext/tests/unit

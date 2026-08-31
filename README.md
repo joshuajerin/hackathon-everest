@@ -1,176 +1,243 @@
-# Hackathon Everest
+<div align="center">
 
-**A continuous foothold-assurance system for a sensorized Unitree G1 crampon.**
+# DeepSense · Hackathon Everest
 
-The core idea is not to classify a patch as “snow” or “ice.” The crampon estimates how much
-vertical and lateral support each foot has left, shares that evidence through a local terrain map,
-and delays or redirects the next body-weight transfer when the bilateral support state is unsafe.
+### A sensorized crampon and drop-in control layer for more stable Unitree G1 locomotion on extreme terrain
 
-> Current status: a runnable reduced-order estimator/control pipeline plus a sensorized single-foot MuJoCo
-> fixture and a compiled official G1 crampon attachment. The hybrid ice law uses literature-grounded broad
-> priors, not calibration from this spike. This is not autonomous G1 locomotion, validated ice/snow physics,
-> tested hardware, or evidence that a robot is ready for Everest.
+[![CI](https://github.com/joshuajerin/hackathon-everest/actions/workflows/ci.yml/badge.svg)](https://github.com/joshuajerin/hackathon-everest/actions/workflows/ci.yml)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Isaac Lab](https://img.shields.io/badge/Isaac%20Lab-3.0-76B900?logo=nvidia&logoColor=white)](docs/ISAACLAB_QUICKSTART.md)
+[![MuJoCo](https://img.shields.io/badge/MuJoCo-optional-0F9DCE)](docs/MUJOCO_SETUP.md)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Why this is the hackathon scope
+DeepSense instruments both crampons, estimates contact support from hardware-shaped sensor packets, remembers
+terrain state across steps, and supervises an existing locomotion policy before unstable weight transfer.
 
-The full concept includes MuJoCo, radar waveform simulation, SnowMicroPen calibration, Newton MPM,
-and eventual G1 control. Doing all of those first would hide the main innovation and make the live demo
-fragile. This repository implements one complete vertical slice:
+[Watch the demos](#video-showcase) · [Run the CPU demo](#quickstart) · [Set up Isaac Lab](docs/ISAACLAB_QUICKSTART.md) · [Read the architecture](docs/ARCHITECTURE.md)
 
-```text
-persistent correlated terrain field
-        ↓
-19-channel crampon packets + separate G1 context
-        ↓
-continuous per-foot estimator + approximate uncertainty
-        ↓
-shared 2 m × 2 m terrain belief map
-        ↓
-bilateral support reserve
-        ↓
-COMMIT / HOLD_DOUBLE_SUPPORT / REPLANT
+</div>
+
+> [!IMPORTANT]
+> This repository contains experimental simulator software. The snow/ice parameters are project-authored
+> priors, not field calibration. Nothing here is physical-robot validation, an Everest digital twin, or
+> evidence that a robot is ready for mountain deployment.
+
+## Video showcase
+
+Click any frame to open the MP4. These are native Isaac Lab simulator recordings published with hashes and
+provenance in [`docs/media/manifest.json`](docs/media/manifest.json).
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/media/polished-wind-ice-25deg-comparison.mp4"><img src="docs/media/polished-wind-ice-25deg-comparison.jpg" width="100%" alt="Polished wind ice policy comparison"></a>
+<br><strong>Polished wind ice · 25° comparison</strong><br>
+Same Isaac process and matched material draw. Green is the crampon policy; red is a low-grip no-crampon proxy.
+</td>
+<td width="50%" valign="top">
+<a href="docs/media/bounded-residual-locomotion.mp4"><img src="docs/media/bounded-residual-locomotion.jpg" width="100%" alt="Bounded residual locomotion"></a>
+<br><strong>Bounded-residual locomotion</strong><br>
+A six-second simulator render of the contact-gated correction path. Overlay values are static run summaries, not frame-aligned telemetry.
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/media/bilateral-sensor-packet-demo.mp4"><img src="docs/media/bilateral-sensor-packet-demo.jpg" width="100%" alt="Bilateral crampon sensor packet demo"></a>
+<br><strong>Bilateral sensor packet</strong><br>
+Two feet × 19 visible values: force, penetration, IMU, and decoded radar frontend at the controller boundary.
+</td>
+<td width="50%" valign="top">
+<a href="docs/media/everest-suite-2160-world-tour.mp4"><img src="docs/media/everest-suite-2160-world-tour.jpg" width="100%" alt="Everest-inspired 2160 world suite"></a>
+<br><strong>2,160-world stress-suite tour</strong><br>
+Nine surface families × ten inclines × eight hazards × three contact modes, authored as parallel Isaac worlds.
+</td>
+</tr>
+</table>
+
+The comparison clips are **whole-system visual ablations**, not calibrated hardware-effect measurements. The
+baseline uses a low-grip proxy and a different policy artifact. See the media manifest and
+[`docs/DEEPSENSE_TECHNICAL_PLAYBOOK.md`](docs/DEEPSENSE_TECHNICAL_PLAYBOOK.md) before quoting results.
+
+## What DeepSense adds
+
+A generic walking policy already knows how to produce G1 joint targets. DeepSense leaves that core replaceable
+and adds a contact-assurance path around it:
+
+1. **Sense:** emit one synchronized 19-value packet per foot at 100 Hz.
+2. **Estimate:** infer bearing, shear, support depth, failure risk, and uncertainty from causal history.
+3. **Remember:** update a persistent local belief map with contact, compaction, fracture, and cross-foot evidence.
+4. **Check both feet:** evaluate the target and loaded stance foot through the planned transfer.
+5. **Supervise:** bound velocity/mode commands. An experimental adapter can apply a separately trained, gated, rate-limited joint residual after it is wired to the exact policy ABI.
+6. **Fail closed:** hold, stop, or request recovery when packets are stale, invalid, uncertain, or unsafe.
+
+```mermaid
+flowchart LR
+    A["Left + right crampons<br/>19 values / foot @ 100 Hz"] --> B["Causal estimator<br/>support + uncertainty"]
+    B --> C["Persistent terrain belief<br/>cross-foot memory"]
+    C --> D["Bilateral shield<br/>target + stance reserve"]
+    E["Requested velocity / mode"] --> D
+    D --> F["Bounded command<br/>or gated residual"]
+    F --> G["Existing G1<br/>locomotion policy"]
+    G --> H["Named joint targets<br/>+ hard limits"]
+    H --> I["Unitree G1"]
 ```
 
-The terrain is continuous. Scenario names such as hard ice, firn, crust, or snow bridge are not model
-outputs and are not training labels.
+## Feature status
 
-## Current MuJoCo fit
+| Capability | Status | Evidence / boundary |
+|---|---|---|
+| Reduced-order terrain → sensor → estimator → map → controller pipeline | ✅ Runnable | CPU demo and root test suite |
+| Exact bilateral sensor ABI | ✅ Implemented | 19 values per foot; validity, age, and context remain separate |
+| Persistent compaction, damage, fracture, and crater state | ✅ Implemented | Reduced model plus stateful Isaac contact extension |
+| Single-foot MuJoCo geometry and hybrid ice fixtures | ✅ Runnable | Optional `mujoco` dependency |
+| Complete 26-object crampon USD composition | ✅ Implemented | Asset authority and hashes under `configs/isaaclab/` |
+| Native Isaac Lab task, sensors, stateful contact, shield, and runners | ✅ Implemented | External extension under `isaaclab_ext/` |
+| Everest-inspired stress suite | ✅ Configured | 2,160 physical cases; 12,960 case/fault exposures after six cycles |
+| GPU simulator recordings | ✅ Published | README media bundle with SHA-256 provenance |
+| Calibrated stock-foot vs physical-crampon effectiveness | 🚧 Not yet | Current no-crampon lane is a low-grip simulator proxy |
+| Physical snow/ice sensor calibration | 🚧 Not yet | Requires the actual spike/foot and a six-axis test rig |
+| Guaranteed exact replant and field deployment | 🚧 Not yet | Requires validated footstep/whole-body control and progressive hardware tests |
 
-The user-supplied crampon is uniformly scaled to `108`, attached inside both official G1 ankle-roll frames,
-and rendered visual-only over four named analytical probes per foot.
+## Exact sensor contract
 
-![MuJoCo G1 crampon fit](docs/images/g1_crampon_closeup.png)
+Each foot emits exactly **19 sensor values** at one timestamp:
 
-## Isaac Lab asset authority
+| Input | Count | Purpose |
+|---|---:|---|
+| Four spike axial forces | 4 | Load sharing, stiffness, and force-drop evidence |
+| Four penetration readings | 4 | Sinkage, engagement, and layer response |
+| Foot accelerometer | 3 | Touchdown, collapse, and vibration signatures |
+| Foot gyroscope | 3 | Rotation, chatter, and loss-of-purchase signatures |
+| Decoded radar frontend | 5 | Interfaces, return strength, void likelihood, and uncertainty |
+| **Total per foot** | **19** | Synchronized hardware-shaped packet |
 
-Future Isaac Lab work uses the complete 26-object USD assembly in
-`assets/crampon/g1_crampon_components_source.usdc`, positioned through
-`blender/g1_crampon_components_fit.blend`. It must not use the older two-mesh fitted STL path.
-The old asset remains only for the existing MuJoCo compatibility workflow until that exporter is replaced.
-See `configs/isaaclab/g1_crampon_asset.yaml` for the machine-readable boundary.
+A separate 19-bit validity mask and sample age accompany the values. G1 pose, velocity, pelvis state, commands,
+and body load are explicit context—not extra crampon channels. Exact simulator contact vectors and material
+parameters remain labels or diagnostics and never enter the deployable actor.
 
-![Editable complete USD crampon assembly](blender/g1_crampon_components_fit_preview.png)
-
-## Run it
+## Quickstart
 
 Requirements: Python 3.12 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv sync --group dev
-uv run pytest -q
-uv run everest pipeline --config configs/smoke.yaml --out artifacts/smoke
-open artifacts/smoke/report.html
+git clone https://github.com/joshuajerin/hackathon-everest.git
+cd hackathon-everest
+make setup
+make verify
 ```
 
-The larger Mac CPU demo is:
+Open the generated smoke report:
+
+```bash
+open artifacts/smoke/report.html       # macOS
+xdg-open artifacts/smoke/report.html   # Linux
+```
+
+The larger reproducible CPU demo is:
 
 ```bash
 uv run everest pipeline --config configs/hackathon.yaml --out artifacts/hackathon
-open artifacts/hackathon/report.html
 ```
 
-On the development Mac, the hackathon config generates 1,600 probes / 8,000 causal prefix samples,
-trains the estimator, benchmarks both schedulers, and renders the report in tens of seconds. Runtime
-will vary by machine.
+It generates a grouped synthetic dataset, trains the transparent ExtraTrees baseline, replays the bilateral
+scheduler, runs the current-contact ablation, and writes a self-contained HTML report and manifest.
 
-### Individual commands
+### Useful commands
 
 ```bash
+make lint                 # Ruff
+make test                 # reduced-order tests
+make test-isaac-unit      # Isaac-neutral extension tests (installs root GPU/Torch extra)
+make smoke                # fast end-to-end CPU pipeline
+make verify-all           # core verification + Isaac-neutral extension tests
+make build                # wheel + source distribution
+
 uv run everest contract
 uv run everest generate --episodes 800 --fields 100 --out artifacts/probes.npz
 uv run everest train --dataset artifacts/probes.npz --model artifacts/model.joblib
 uv run everest replay --model artifacts/model.joblib --steps 6 --out artifacts/replay.json
+```
 
-# Optional single-foot MuJoCo gates
+### Optional MuJoCo fixtures
+
+```bash
 uv sync --extra mujoco --group dev
 uv run everest mujoco-probe --load 150 --duration 1.2 --out artifacts/mujoco_probe
 uv run everest mujoco-ice-probe --load 150 --duration 1.5 --out artifacts/mujoco_ice_probe
-
-# Build the derived pinned official G1 attachment
-uv run python scripts/fetch_g1_menagerie.py
-uv run python scripts/build_g1_crampon.py
 ```
 
-## The exact sensor contract
+## Isaac Lab GPU path
 
-Each synchronized crampon sample has **19 values**, not 22:
+Native Isaac work requires Linux, an NVIDIA GPU, the official G1 asset/checkpoint pair, and the pinned stack in
+[`isaaclab_ext/stack.lock.json`](isaaclab_ext/stack.lock.json). The full walkthrough covers extension install,
+asset composition, probe data, shadow/active evaluation, comparison renders, and safe artifact sync:
 
-| Input | Values | Hardware story |
-|---|---:|---|
-| Four spike axial forces | 4 | One scalar strain/load measurement along each spike axis |
-| Four penetration readings | 4 | Requires moving probes, telescoping spikes, or a floating surface collar |
-| Foot accelerometer | 3 | Crampon-mounted IMU |
-| Foot gyroscope | 3 | Crampon-mounted IMU |
-| Radar frontend | 5 | Decoded interfaces/strength/void/uncertainty, not raw radar bins |
-| **Total** | **19** | Synchronized at one timestamp |
+**[Open the Isaac Lab quickstart →](docs/ISAACLAB_QUICKSTART.md)**
 
-G1 foot pose/velocity, pelvis orientation, probe command, approach speed, and current load are paired
-context. They are not extra crampon sensors. A separate 19-bit validity mask marks held or missing samples;
-it is metadata, not another sensor reading. Full 3-D simulator contact forces remain labels and diagnostics
-only; the estimator never receives lateral-force truth unavailable to the planned v1 hardware.
+Recorded README media came from the pinned GPU artifact store. The GPU host was not reachable during the latest
+repository refresh, so no fresh remote job or checkpoint was claimed; the published copies were decoded and
+hashed locally.
 
-The radar frontend is quantized to 40 mm range resolution in the fast simulator. It therefore does not
-pretend to resolve a 2–20 mm crust. Force, penetration, and IMU contact signatures handle that case.
+## Three simulation levels
 
-## What the pipeline produces
+| Level | Purpose | Backend |
+|---|---|---|
+| **L0 · Probe farm** | Cheap causal sensor/label generation and estimator training | Reduced-order Python or vector Isaac fixtures |
+| **L1 · Full G1** | Closed-loop gait, bilateral loading, sensor faults, and policy supervision | Isaac Lab manager-based environment |
+| **L2 · Discrepancy / calibration** | Geometry checks, alternate dynamics, and eventual rig replay | MuJoCo hybrid fixtures and physical test data |
+
+No simulator is called ground truth. Physical calibration remains the authority for real contact behavior.
+
+## Pipeline outputs
 
 `everest pipeline` writes:
 
-- `probe_dataset.npz` — causal windows at 50, 100, 150, 225, and 300 ms;
-- `terrain_estimator.joblib` — ExtraTrees continuous/event estimator;
-- `metrics.json` — held-out field-seed metrics and false-safe rate;
-- `replay.json` — per-step sensor estimates, map evidence, support state, and decisions;
+- `probe_dataset.npz` — causal 50/100/150/225/300 ms prefixes;
+- `terrain_estimator.joblib` — continuous and event estimator;
+- `metrics.json` — grouped held-out metrics and false-safe rate;
+- `replay.json` — estimates, map evidence, reserves, and decisions;
 - `benchmark.json` — current-contact-only versus map + bilateral reasoning;
-- `terrain_belief.png` — truth, controller belief, and uncertainty views;
-- `report.html` — a self-contained demo report;
-- `manifest.json` — config hash/content, feature order, split field IDs, dependency versions, Git state,
-  seeds, schema, and limitations.
+- `terrain_belief.png` — truth, controller belief, and uncertainty diagnostics;
+- `report.html` — self-contained demo report;
+- `manifest.json` — schema, config, dependencies, seeds, Git state, feature order, and limitations.
 
-The smoke replay begins on an explicitly known stable launch patch. Unknown terrain starts at
-`x = -0.42 m`. This avoids confusing “cannot leave the starting block” with the foothold problem.
-
-## Learning setup
-
-- **Regressions:** support depth, stiffness, damping, bearing capacity, shear capacity, friction,
-  compaction, damage, fracture margin, slip margin, and void depth.
-- **Events:** void, fracture, and slip probabilities.
-- **Uncertainty:** tree-to-tree ensemble spread with conservative floors. It is approximate and is not
-  presented as a calibrated safety probability.
-- **Split:** whole terrain field seeds, never neighboring strokes from one field.
-- **Pre-contact scan:** the noisy radar frontend updates every candidate cell before ranking.
-- **Controller:** deterministic conservative scoring and support gates. Planned probe load and approach speed
-  drive contact; bounded transfer rate and swing clearance enter execution checks. No RL is required for v0.
-
-## Repository map
+## Repository layout
 
 ```text
-src/hackathon_everest/
-  terrain.py       correlated fields + persistent compaction/fracture
-  physics.py       reduced-order persistent snow/mixed-terrain truth
-  ice.py           stateful temperature/fracture/ploughing ice prior
-  mujoco_probe.py  hard-plane geometry and 19-channel fixture gate
-  hybrid_ice_probe.py  MuJoCo kinematics + external irreversible ice law
-  sensors.py       noise, quantization, dropouts, 19-channel packets
-  features.py      causal prefix-window features
-  dataset.py       field-seed dataset generation and storage
-  estimation.py    continuous/event models and held-out metrics
-  mapping.py       40 × 40 mean/uncertainty belief map
-  control.py       bilateral reserves and step decisions
-  pipeline.py      replay, ablation benchmark, plot, and HTML report
-  cli.py           command-line entry point
+src/hackathon_everest/         CPU reference pipeline and stable contracts
+isaaclab_ext/                  external Isaac Lab extension, runners, and unit tests
+configs/                       reduced-order, material-prior, and Isaac suite configuration
+assets/                        source crampon geometry and G1 compatibility assets
+mujoco/                        single-foot and slope fixtures
+blender/                       editable crampon fit authority and export tools
+scripts/                       asset, calibration, bootstrap, and analysis commands
+tests/                         reduced-order contract and pipeline tests
+docs/                          architecture, setup, calibration, scope, and evidence guides
+docs/media/                    reviewed README media plus provenance manifest
 ```
 
-See the [DeepSense technical pitch and evaluation playbook](docs/DEEPSENSE_TECHNICAL_PLAYBOOK.md),
-the [Isaac Lab implementation plan](ISAACLAB_MIGRATION_PLAN.md),
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
-[docs/ICE_SIM_TO_REAL.md](docs/ICE_SIM_TO_REAL.md),
-[docs/MUJOCO_SETUP.md](docs/MUJOCO_SETUP.md),
-[docs/REAL_DATA.md](docs/REAL_DATA.md),
-[docs/HACKATHON_SCOPE.md](docs/HACKATHON_SCOPE.md), and the
-[submission kit](docs/SUBMISSION.md) for the design boundaries and demo flow.
+## Documentation
 
-## Safety and claim boundary
+- [Architecture](docs/ARCHITECTURE.md)
+- [Isaac Lab quickstart](docs/ISAACLAB_QUICKSTART.md)
+- [DeepSense technical playbook](docs/DEEPSENSE_TECHNICAL_PLAYBOOK.md)
+- [Ice simulation and sim-to-real funnel](docs/ICE_SIM_TO_REAL.md)
+- [MuJoCo setup](docs/MUJOCO_SETUP.md)
+- [Real-data boundary](docs/REAL_DATA.md)
+- [Hackathon scope](docs/HACKATHON_SCOPE.md)
+- [Submission kit](docs/SUBMISSION.md)
+- [Contributing](CONTRIBUTING.md)
 
-This project is experimental simulation software. It does not command a physical robot. Its synthetic
-material priors are not field calibrated. Any hardware or mountain deployment would need mechanical,
-environmental, electrical, control, and human safety review well beyond this repository.
+## Evidence rules
+
+- Report safety and progress together. A controller that only stops is not useful.
+- Keep train/calibration/test groups separated by terrain/world/site lineage.
+- Preserve asset, policy, checkpoint, config, simulator, and output hashes.
+- Label visual-only geometry, simulator truth, decoded sensor values, and deployable inputs separately.
+- Treat the comparison videos as controlled simulator proxies—not physical effectiveness claims.
+- Treat the 2,160 cases as authored stress tests—not surveyed Everest frequencies.
+
+## License
+
+[MIT](LICENSE) for original project code. Third-party robot assets, policies, simulator packages, user-supplied
+CAD, and media retain separate terms; see [Third-party notices and asset provenance](THIRD_PARTY_NOTICES.md).

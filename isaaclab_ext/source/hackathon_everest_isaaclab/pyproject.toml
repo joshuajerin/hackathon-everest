@@ -9,6 +9,12 @@ description = "External Isaac Lab extension for the Everest crampon policy"
 requires-python = ">=3.12,<3.13"
 dependencies = []
 
+[project.optional-dependencies]
+data = [
+  "pyarrow==21.0.0",
+  "zarr==3.1.5",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["hackathon_everest_isaaclab*"]

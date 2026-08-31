@@ -17,11 +17,20 @@ from .controller import (
     RollingPacketHistory,
     SafeCommand,
 )
+from .joint_residual import (
+    DEFAULT_MAXIMUM_RESIDUAL_RAD,
+    DEFAULT_TERRAIN_JOINT_NAMES,
+    SensorGatedJointResidual,
+    SensorJointResidualConfig,
+    SensorJointResidualOutput,
+)
 from .policy_blend import SmoothPolicyBlend, SmoothPolicyBlendConfig
 from .process_guard import acquire_isaac_process_lock
 
 __all__ = [
     "COMMAND_DIM",
+    "DEFAULT_MAXIMUM_RESIDUAL_RAD",
+    "DEFAULT_TERRAIN_JOINT_NAMES",
     "ESTIMATOR_RATE_HZ",
     "LOCOMOTION_ACTION_DIM",
     "CommandAdapter",
@@ -33,6 +42,9 @@ __all__ = [
     "PacketHistory",
     "RollingPacketHistory",
     "SafeCommand",
+    "SensorGatedJointResidual",
+    "SensorJointResidualConfig",
+    "SensorJointResidualOutput",
     "SmoothPolicyBlend",
     "SmoothPolicyBlendConfig",
     "acquire_isaac_process_lock",

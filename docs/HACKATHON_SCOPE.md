@@ -8,14 +8,14 @@
 This is a Track 1 movement project. The two-minute demo should show one deterministic 4–8 step replay,
 not a slide deck of future components.
 
-## What the live demo proves
+## What the reduced-order live demo demonstrates
 
 1. A single terrain field persists across both feet and every step.
 2. A left-foot observation changes the prior for nearby right-foot candidates before contact.
 3. The estimator returns continuous state and uncertainty instead of a snow/ice class.
 4. Candidate ranking uses lower-confidence bearing support, void probability, uncertainty, and distance.
 5. A good target is not enough when the stance foot cannot carry the transfer.
-6. The full scheduler can hold or replant where the current-contact-only ablation commits unsafely.
+6. The full scheduler can recommend a hold or replant where the simulator oracle classifies a current-contact-only commit as unsafe.
 
 ## What it does not prove
 

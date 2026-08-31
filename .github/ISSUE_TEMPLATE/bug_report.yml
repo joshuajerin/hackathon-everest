@@ -1,0 +1,45 @@
+name: Bug report
+description: Report a reproducible software, contract, or simulator issue
+title: "[bug] "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include credentials, private checkpoints, or proprietary assets."
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Layer
+      options:
+        - Reduced-order Python pipeline
+        - MuJoCo fixture
+        - Isaac Lab extension
+        - Assets / build tooling
+        - Documentation / media
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Include the exact command, config, seed, and smallest reproducer.
+      placeholder: |
+        Command:
+        Config/task:
+        Seed:
+        Expected:
+        Actual:
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and hashes
+      description: OS, Python, simulator/GPU versions, Git revision, asset/policy/checkpoint hashes when relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs or manifest excerpt
+      render: shell

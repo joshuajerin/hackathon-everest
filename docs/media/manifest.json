@@ -1,0 +1,124 @@
+{
+  "schema_version": "1.0.0",
+  "artifact_type": "github_readme_media_bundle",
+  "source_stack": "isaaclab_ext/stack.lock.json",
+  "artifacts": [
+    {
+      "published_path": "docs/media/polished-wind-ice-25deg-comparison.mp4",
+      "poster_path": "docs/media/polished-wind-ice-25deg-comparison.jpg",
+      "published_sha256": "8dd4f4bdb6e5388ee121fd7d5a5fac8176f91075eab8900d713c43615880d9a2",
+      "poster_sha256": "40c4d45a37a6dbbf9c75a847d3d7b922553f21b73fab8c726d96556488dd1bde",
+      "source_path": "artifacts/videos/policy_crampon_comparison/uphill_two_videos_20260830_v3/shot_001_polished_wind_ice_25deg_uphill_hero_pair/polished_wind_ice-25deg-comparison-step-0.mp4",
+      "source_sha256": "8dd4f4bdb6e5388ee121fd7d5a5fac8176f91075eab8900d713c43615880d9a2",
+      "derived": false,
+      "derivation": "byte-for-byte copy",
+      "provenance": "comparison_manifest.json from source shot directory",
+      "ffprobe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "50/1"
+          }
+        ],
+        "format": {
+          "duration": "15.000000",
+          "size": "1209176"
+        }
+      },
+      "decode_check": "pass",
+      "claim_boundary": "Same-process matched-material visual ablation. The baseline is a 0.01-grip proxy and uses different policy bytes; not a calibrated hardware-effect estimate."
+    },
+    {
+      "published_path": "docs/media/bounded-residual-locomotion.mp4",
+      "poster_path": "docs/media/bounded-residual-locomotion.jpg",
+      "published_sha256": "a19687cac323868a104ad61dd539319e923b35f7d6764c2f6708024d3ff598c2",
+      "poster_sha256": "f698355e3b937352387c33b54b39a20de082d50d1cb89bc9fc9fd0a87ca86328",
+      "source_path": "artifacts/videos/bounded_residual_v1_model30_annotated/run_annotated.mp4",
+      "source_sha256": "a19687cac323868a104ad61dd539319e923b35f7d6764c2f6708024d3ff598c2",
+      "derived": false,
+      "derivation": "byte-for-byte copy",
+      "provenance": "artifacts/videos/bounded_residual_v1_model30_annotated/validation.json",
+      "ffprobe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 1760,
+            "height": 960,
+            "r_frame_rate": "50/1"
+          }
+        ],
+        "format": {
+          "duration": "6.000000",
+          "size": "1045559"
+        }
+      },
+      "decode_check": "pass",
+      "claim_boundary": "Simulator-only render. Overlay values are static supplied run summaries, not frame-aligned telemetry; the validation record notes no local evaluation JSON was found."
+    },
+    {
+      "published_path": "docs/media/bilateral-sensor-packet-demo.mp4",
+      "poster_path": "docs/media/bilateral-sensor-packet-demo.jpg",
+      "published_sha256": "7fda6e6338c85f925e10d3ad204dc77ae0904c3c968cf3f916afd7ff2167d012",
+      "poster_sha256": "089df39a89a6444411733bacfbafb074d97dce046c8e16a4c822f7520f8ed3bd",
+      "source_path": "artifacts/videos/crampon_sensor_world_v3/run_annotated_final.mp4",
+      "source_sha256": "8a0edecdb9fb054f10314b6a797f4da7bf92aaccd61ca96cb849b4fc2088d51d",
+      "derived": true,
+      "derivation": "first 15 seconds, scaled to 1280px, H.264 CRF 24",
+      "provenance": "artifacts/videos/crampon_sensor_world_v3/manifest_final.json and sensor_world.json",
+      "ffprobe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "50/1"
+          }
+        ],
+        "format": {
+          "duration": "15.000000",
+          "size": "2314251"
+        }
+      },
+      "decode_check": "pass",
+      "claim_boundary": "Recorded Isaac simulation with visible packet overlays. Surface names are world metadata; sensor values and material response are simulator-authored."
+    },
+    {
+      "published_path": "docs/media/everest-suite-2160-world-tour.mp4",
+      "poster_path": "docs/media/everest-suite-2160-world-tour.jpg",
+      "published_sha256": "0f7947e8ab401c19fa09d99d9d633336f737a1c1fd2435993fa4950551b1bc9d",
+      "poster_sha256": "79bea53689038a3ac514840576b1843aec6752fc99b091bf09c4016e78118d71",
+      "source_path": "artifacts/videos/parallel_world_tour_2160/parallel_world_tour.mp4",
+      "source_sha256": "3f81cdb3f3b8b8ec48b91428cf1c07236f636579c9b5b417a9151bafdc272f8b",
+      "derived": true,
+      "derivation": "scaled to 1280px, H.264 CRF 24",
+      "provenance": "authored 2,160-case suite defined in configs/isaaclab/everest_terrain_suite.yaml",
+      "ffprobe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 1280,
+            "height": 720,
+            "r_frame_rate": "50/1"
+          }
+        ],
+        "format": {
+          "duration": "6.000000",
+          "size": "817368"
+        }
+      },
+      "decode_check": "pass",
+      "claim_boundary": "Visual tour of project-authored parallel worlds, not evidence that every case completed a locomotion evaluation."
+    }
+  ],
+  "general_claim_boundary": "All media is simulator-only evidence. It is not physical robot, field, safety, or Everest-readiness validation."
+}
